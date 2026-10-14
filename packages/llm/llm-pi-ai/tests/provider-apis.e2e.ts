@@ -17,8 +17,8 @@ import type { PiAiReplayResponse } from '../src/replay.ts'
 import { assemble, type AssembledResult } from './assemble.ts'
 
 interface ProviderCase {
-  provider: 'openai' | 'anthropic'
-  api: 'openai-responses' | 'anthropic-messages'
+  provider: 'openai' | 'anthropic' | 'google'
+  api: 'openai-responses' | 'anthropic-messages' | 'google-generative-ai'
   model: string
   apiKey?: string
   baseURL?: string
@@ -36,7 +36,7 @@ const providerCases: ProviderCase[] = [
   {
     provider: 'openai',
     api: 'openai-responses',
-    model: process.env.DSH_PI_AI_OPENAI_MODEL ?? 'gpt-5.5',
+    model: process.env.DSH_PI_AI_OPENAI_MODEL ?? 'gpt-5.6-sol',
     ...azureOpenAIKey
       ? { apiKey: azureOpenAIKey, headers: { 'api-key': azureOpenAIKey, Authorization: '' } }
       : {},
@@ -48,6 +48,13 @@ const providerCases: ProviderCase[] = [
     model: process.env.DSH_PI_AI_ANTHROPIC_MODEL ?? 'claude-opus-4-8',
     ...anthropicApiKey === undefined ? {} : { apiKey: anthropicApiKey },
     ...anthropicBaseURL === undefined ? {} : { baseURL: anthropicBaseURL },
+  },
+  {
+    provider: 'google',
+    api: 'google-generative-ai',
+    model: process.env.DSH_PI_AI_GOOGLE_MODEL ?? 'gemini-3.8-flash',
+    ...process.env.GEMINI_API_KEY === undefined ? {} : { apiKey: process.env.GEMINI_API_KEY },
+    ...process.env.DSH_PI_AI_GOOGLE_BASE_URL === undefined ? {} : { baseURL: process.env.DSH_PI_AI_GOOGLE_BASE_URL },
   },
 ]
 
@@ -118,10 +125,10 @@ afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
 })
 
-function ask(text: string): Message[] {
+function ask(profile: ProviderCase, text: string): Message[] {
   return [createUserMessage({
     content: [{ type: 'text', text }],
-    source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    source: { kind: 'model', provider: profile.provider, model: profile.model },
   })]
 }
 
@@ -174,7 +181,7 @@ for (const profile of providerCases) {
         const result = await assemble(ctx, {
           provider: profile.provider,
           model: profile.model,
-          messages: ask('Reply with exactly the word: pong'),
+          messages: ask(profile, 'Reply with exactly the word: pong'),
           maxTokens: 1024,
         })
 
@@ -187,7 +194,7 @@ for (const profile of providerCases) {
 
       it('round-trips a tool call with provider-native replay metadata', async () => {
         const ctx = await harness()
-        const prompt = ask('Use lookup_code with code "blue". Do not answer without calling the tool.')
+        const prompt = ask(profile, 'Use lookup_code with code "blue". Do not answer without calling the tool.')
         const first = await assemble(ctx, {
           provider: profile.provider,
           model: profile.model,
@@ -249,7 +256,7 @@ for (const profile of providerCases) {
                 },
                 { type: 'image', attachment: ref },
               ],
-              source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+              source: { kind: 'model', provider: profile.provider, model: profile.model },
             })],
             maxTokens: 256,
           })

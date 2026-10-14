@@ -1,5 +1,5 @@
 ---
-description: "DeepSeek api-key authentication and model discovery."
+description: "S1API api-key authentication and model discovery for the Messages-compatible route."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Register authentication and model discovery for `deepseek-official`. This plugin shares the [Messages transport](../llm-deepseek/README.md) and owns credential resolution and catalog availability.
+Register authentication and model discovery for the S1API-backed `deepseek-official` route. This plugin shares the [Messages transport](../llm-deepseek/README.md) and owns credential resolution and catalog availability. The internal route id remains `deepseek-official` for compatibility with existing settings and sessions.
 
 Authentication resolution returns the validated API key in `x-api-key` for both Messages and Files requests.
 
@@ -25,7 +25,7 @@ Authentication resolution returns the validated API key in `x-api-key` for both 
 <a id="use-this-package"></a>
 ## Use this package
 
-`apiKeyEnv` defaults to `DEEPSEEK_API_KEY` and resolves per request and model discovery. When the credentials service exists, its precedence applies; only compositions without that service read the launch environment directly. Requests with missing credentials fail with `MISSING_CREDENTIAL`; malformed credentials fail with `INVALID_CREDENTIAL`. Model discovery returns an empty catalog when the credential is missing, hiding the route from model selectors while retaining its settings entry. Malformed credentials and other lookup failures propagate. Adding or removing a key affects the next discovery call.
+`apiKeyEnv` defaults to `DEEPSEEK_API_KEY` for compatibility with the upstream configuration and resolves per request and model discovery. In the product UI the key is presented as an S1API key. When the credentials service exists, its precedence applies; only compositions without that service read the launch environment directly. Requests with missing credentials fail with `MISSING_CREDENTIAL`; malformed credentials fail with `INVALID_CREDENTIAL`. Model discovery returns an empty catalog when the credential is missing, hiding the route from model selectors while retaining its settings entry. Malformed credentials and other lookup failures propagate. Adding or removing a key affects the next discovery call.
 
 ```yaml
 - id: llm-deepseek
@@ -56,7 +56,7 @@ Registrations and listeners dispose with the plugin. Shared Host wiring supplies
 
 #### What the model sees
 
-Requests on `deepseek-official` add no model-visible text from this plugin; the shared Messages transport serializes requests.
+Requests on the S1API-backed `deepseek-official` route add no model-visible text from this plugin; the shared Messages transport serializes requests.
 
 #### Token effect
 

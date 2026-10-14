@@ -11,18 +11,20 @@
   - paragraph: 填入各提供商的 API 密钥即可使用其模型。
   - list:
     - listitem:
-      - text: DeepSeek
+      - text: S1API
       - img "API 密钥已配置"
-      - button "编辑 DeepSeek (deepseek-official)": 编辑
-      - text: DeepSeek deepseek-official API 密钥
+      - button "编辑 S1API (deepseek-official)": 编辑
+      - text: S1API deepseek-official API 密钥
       - button "认证说明": "?"
+      - link "获取 S1API API Key":
+        - /url: https://s1api.com/keys
       - textbox "API 密钥":
         - /placeholder: 留空使用已保存凭据
       - group:
         - text: 自定义设置 API 地址
         - textbox "API 地址":
-          - /placeholder: https://api.deepseek.com/anthropic（默认使用环境 DEEPSEEK_BASE_URL）
-        - text: 请填写兼容 Anthropic Messages 协议的 API 地址。
+          - /placeholder: https://s1api.com（自动请求 /v1/messages）
+        - text: S1API 的 Anthropic Messages 兼容地址，应用会自动追加 /v1/messages。
         - region "模型目录":
           - text: 模型目录 已自定义模型目录
           - button "恢复默认模型"
@@ -51,4 +53,16 @@
           - button "添加模型"
       - button "取消"
       - button "保存"
+    - listitem:
+      - text: Claude
+      - img "API 密钥缺失"
+      - button "编辑 Claude (anthropic)": 编辑
+    - listitem:
+      - text: Gemini
+      - img "API 密钥缺失"
+      - button "编辑 Gemini (google)": 编辑
+    - listitem:
+      - text: OpenAI
+      - img "API 密钥缺失"
+      - button "编辑 OpenAI (openai)": 编辑
   - button "添加模型提供商"

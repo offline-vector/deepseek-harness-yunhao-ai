@@ -398,7 +398,10 @@ describe('DeepSeekAdapter against a mock server', () => {
       policies.push(policy)
       return Promise.resolve(requestImage(ref))
     })
-    const adapter = adapterOf({ baseURL: server.url }, attachmentMocks.store)
+    const adapter = adapterOf({
+      baseURL: server.url,
+      models: [{ id: 'deepseek-flash', inputModalities: ['text', 'image'] }],
+    }, attachmentMocks.store)
 
     await drain(adapter.stream({
       provider: 'deepseek-official',
@@ -1728,7 +1731,7 @@ describe('DeepSeekAdapter against a mock server', () => {
 
 describe('plugin registration and config', () => {
   it('resolves the Messages endpoint without rewriting overrides', () => {
-    expect(resolveAdapterOptions({}).baseURL).toBe('https://api.deepseek.com/anthropic')
+    expect(resolveAdapterOptions({}).baseURL).toBe('https://s1api.com')
     for (const baseURL of ['https://example.com', 'https://example.com/custom']) {
       expect(resolveAdapterOptions({ baseURL }).baseURL).toBe(baseURL)
     }
@@ -1756,10 +1759,10 @@ describe('plugin registration and config', () => {
     const fiber = await ctx.plugin(LlmDeepSeek, {
       baseURL: server.url,
     })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'S1API' }])
     expect(ctx.llm.listConfigurableProviders()).toEqual([{
       provider: 'deepseek-official',
-      displayName: 'DeepSeek',
+      displayName: 'S1API',
       settingsNs: 'llm-deepseek-api-key',
       settingsPath: [],
     }])
@@ -1792,23 +1795,20 @@ describe('plugin registration and config', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'S1API' }])
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
-      { provider: 'deepseek-official', id: 'deepseek-flash', name: 'DeepSeek-V4.1-Flash', inputModalities: ['text', 'image'] },
-      {
-        provider: 'deepseek-official',
-        id: 'deepseek-v4-pro',
-        name: 'DeepSeek-V4-Pro',
-        description: 'Stronger agentic coding, knowledge, and difficult reasoning; suited to complex or quality-critical tasks at higher cost.',
-        inputModalities: ['text'],
-      },
+      { provider: 'deepseek-official', id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-6-astra', name: 'GPT-6 Astra', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-6-sol', name: 'GPT-6 Sol', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', inputModalities: ['text'] },
     ])
-    await expect(ctx.llm.resolveModelInfo('deepseek-official', 'deepseek-flash'))
+    await expect(ctx.llm.resolveModelInfo('deepseek-official', 'gpt-5.6-sol'))
       .resolves.toMatchObject({
         provider: 'deepseek-official',
-        id: 'deepseek-flash',
-        name: 'DeepSeek-V4.1-Flash',
-        inputModalities: ['text', 'image'],
+        id: 'gpt-5.6-sol',
+        name: 'GPT-5.6 Sol',
+        inputModalities: ['text'],
         systemPromptUpdate: 'in-history',
         context: { contextWindow: 1_000_000 },
         defaultMaxTokens: 256_000,
@@ -1922,14 +1922,11 @@ describe('plugin registration and config', () => {
     await ctx.plugin(LlmRuntime)
     LlmDeepSeek.apply(ctx, LlmDeepSeek.Config({ baseURL: 'http://127.0.0.1:1' }))
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
-      { provider: 'deepseek-official', id: 'deepseek-flash', name: 'DeepSeek-V4.1-Flash', inputModalities: ['text', 'image'] },
-      {
-        provider: 'deepseek-official',
-        id: 'deepseek-v4-pro',
-        name: 'DeepSeek-V4-Pro',
-        description: 'Stronger agentic coding, knowledge, and difficult reasoning; suited to complex or quality-critical tasks at higher cost.',
-        inputModalities: ['text'],
-      },
+      { provider: 'deepseek-official', id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-6-astra', name: 'GPT-6 Astra', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-6-sol', name: 'GPT-6 Sol', inputModalities: ['text'] },
+      { provider: 'deepseek-official', id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', inputModalities: ['text'] },
     ])
   })
 
@@ -2218,7 +2215,7 @@ describe('plugin registration and config', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, {})
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'S1API' }])
   })
 
   it('loads keyless with an empty catalog and fails requests actionably', async () => {
@@ -2226,7 +2223,7 @@ describe('plugin registration and config', () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)
     await ctx.plugin(LlmDeepSeek, { baseURL: 'http://127.0.0.1:1' })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'S1API' }])
     await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([])
     const first = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
     expect(first.finish).toMatchObject({ kind: 'error', failure: { code: 'MISSING_CREDENTIAL' } })
@@ -2307,14 +2304,14 @@ describe('plugin registration and config', () => {
     await ctx.plugin(LlmRuntime)
     // Registration succeeds; no call is made (would hit api.deepseek.com).
     await ctx.plugin(LlmDeepSeek, {})
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'S1API' }])
   })
 
   it('adapter is constructible directly for embedding over the shared resolver', async () => {
     const adapter = adapterOf()
     expect(adapter).toBeInstanceOf(DeepSeekAdapter)
     await expect(adapter.listModels('deepseek-official')).resolves.toEqual([])
-    await expect(adapter.resolveModel('deepseek-official', 'deepseek-flash')).resolves.toMatchObject({ name: 'DeepSeek-V4.1-Flash' })
+    await expect(adapter.resolveModel('deepseek-official', 'deepseek-flash')).resolves.toMatchObject({ name: 'deepseek-flash' })
   })
 
   it('resolves connection facts and the credential exactly once per stream call', async () => {

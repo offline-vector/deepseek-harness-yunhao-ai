@@ -196,7 +196,7 @@ describe('request-level dynamic configuration', () => {
     const dir = await home()
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
 
-    await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(2)
+    await expect(ctx.llm.listModels('deepseek-official')).resolves.toHaveLength(5)
     await configurations.get(ctx)!.update({
       models: [{ id: 'settings-model', name: 'From Settings', inputModalities: ['text', 'image'] }],
     })
@@ -212,7 +212,10 @@ describe('request-level dynamic configuration', () => {
       { kind: 'sse', events: textEvents },
       { kind: 'sse', events: textEvents },
     ])
-    const { ctx } = await boot(dir, { baseURL: server.url })
+    const { ctx } = await boot(dir, {
+      baseURL: server.url,
+      models: [{ id: 'deepseek-flash', inputModalities: ['text', 'image'] }],
+    })
     await ctx.plugin(MappedFileSystem)
     const messages = [createUserMessage({
       content: [
@@ -270,7 +273,7 @@ describe('request-level dynamic configuration', () => {
       maxDelayMs: 100,
       jitterRatio: 0.2,
     })
-    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'DeepSeek' }])
+    expect(ctx.llm.listProviders()).toEqual([{ id: 'deepseek-official', name: 'S1API' }])
     expect(observed).toEqual([['deepseek-official']])
   })
 

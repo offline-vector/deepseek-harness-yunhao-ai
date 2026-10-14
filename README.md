@@ -1,8 +1,10 @@
-# DeepSeek Harness
+# 韵浩 AI
 
 English | [中文](README.zh.md)
 
-DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
+韵浩 AI (`dsh`) is a customized distribution of the open-source DeepSeek Harness agent framework.
+
+The default text route uses the S1API Anthropic Messages-compatible endpoint at `https://s1api.com` and sends requests to `/v1/messages`.
 
 It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
 
@@ -10,7 +12,7 @@ Documentation: [https://deepseek-harness.github.io/deepseek-harness/](https://de
 
 ## Developer preview
 
-DeepSeek Harness is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+韵浩 AI is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
 
 Review the [safety notice](SAFETY.md) before running the project.
 
@@ -62,7 +64,7 @@ For agents, follow [AGENTS.md](AGENTS.md).
 
 ```bibtex
 @misc{deepseek-harness2026,
-  title={DeepSeek Harness: Everything is a Plugin},
+  title={韵浩 AI: Everything is a Plugin},
   author={DeepSeek-AI},
   year={2026},
   publisher={GitHub},

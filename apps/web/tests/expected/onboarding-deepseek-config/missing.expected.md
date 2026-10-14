@@ -1,8 +1,10 @@
 - dialog "添加一个 API Key 开始使用":
   - heading "添加一个 API Key 开始使用" [level=2]
-  - paragraph: 配置 DeepSeek 官方模型，即可开始使用。
+  - paragraph: 填写 S1API API Key，即可开始使用 Anthropic 兼容接口。
   - text: API 密钥
   - button "认证说明": "?"
+  - link "获取 S1API API Key":
+    - /url: https://s1api.com/keys
   - textbox "API 密钥":
     - /placeholder: 输入 API 密钥
   - button "稍后配置"

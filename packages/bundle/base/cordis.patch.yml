@@ -90,8 +90,8 @@
     - id: agent-default-model
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
-        provider: deepseek-official
-        model: deepseek-flash
+        provider: anthropic
+        model: claude-sonnet-4-6
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -114,13 +114,13 @@
     # environment, project `.env`, and user `.env` fallbacks.
     # Adapters resolve references per request; the Models page writes only the
     # managed document, which is never materialized into the process environment.
-    - id: authorization
-      name: '@deepseek-ai/dsh-authorization'
-
     - id: deepseek-account
       name: '@deepseek-ai/dsh-deepseek-account-platform'
       config:
         desktopPlatform: !!js "ctx.get('profileContext')?.name === 'desktop' && ['darwin', 'win32'].includes(process.platform) ? process.platform : null"
+
+    - id: authorization
+      name: '@deepseek-ai/dsh-authorization'
 
     - id: credentials
       name: '@deepseek-ai/dsh-credentials-local'
@@ -134,6 +134,34 @@
     # document.
     - id: llm-pi-ai
       name: '@deepseek-ai/dsh-llm-pi-ai'
+      config:
+        providers:
+          openai:
+            displayName: OpenAI
+            apiKeyEnv: OPENAI_API_KEY
+            models:
+              - id: gpt-5.6-sol
+              - id: gpt-5.6-terra
+              - id: gpt-6-astra
+              - id: gpt-6-sol
+              - id: gpt-6.1-sol
+          anthropic:
+            displayName: Claude
+            apiKeyEnv: ANTHROPIC_API_KEY
+            baseURL: https://s1api.com
+            models:
+              - id: claude-opus-4-6
+              - id: claude-sonnet-4-6
+              - id: claude-haiku-4-5
+          google:
+            displayName: Gemini
+            apiKeyEnv: GEMINI_API_KEY
+            api: anthropic-messages
+            baseURL: https://s1api.com
+            models:
+              - id: gemini-3.8-flash-high
+              - id: gemini-4-argon
+                name: Gemini 4
 
     - id: session-persistence-jsonl
       name: '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -451,27 +479,13 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
-    # The shared base enables the stable model-facing web_search and web_fetch
-    # tools. The Web app disables this host row and composes both tools per agent
-    # preset; products with a stricter network policy override tool-web. DeepSeek
-    # search resolves the same DEEPSEEK_API_KEY
-    # credential the Models page manages for chat, at each search; its Messages
-    # endpoint is configured independently from the model route, so it takes its own
-    # base-URL override. Anonymous fetch accepts only public HTTP(S) destinations,
-    # resolves and validates every destination, and pins every actual connection.
-    # Search is a full auxiliary model request with server-side retrieval, so this
-    # shipped DeepSeek route gets 60s while the provider-neutral tool default
-    # remains 30s.
+    # The shared base enables the stable model-facing web_fetch tool. Search is
+    # intentionally left unconfigured until a deployment supplies a real search
+    # provider; the bundled model routes are OpenAI, Claude, and Gemini only.
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
-        searchProvider: deepseek-official
         fetchProvider: http
-
-    - id: web-search-deepseek
-      name: '@deepseek-ai/dsh-web-search-deepseek'
-      config:
-        apiKeyEnv: DEEPSEEK_API_KEY
 
     - id: web-fetch-http
       name: '@deepseek-ai/dsh-web-fetch-http'
@@ -510,13 +524,3 @@
     # overlay can pin another workspace.
     - id: fs-sandbox
       name: '@deepseek-ai/dsh-fs-sandbox'
-
-    # The native DeepSeek adapter. No key or endpoint is inlined: both resolve per
-    # request from the `llm-deepseek:` settings section over this entry, with the
-    # key coming from the credential store below. Thinking defaults are a deployment
-    # choice.
-    - id: llm-deepseek
-      name: '@deepseek-ai/dsh-llm-deepseek-api-key'
-
-    - id: llm-deepseek-account
-      name: '@deepseek-ai/dsh-llm-deepseek-account'

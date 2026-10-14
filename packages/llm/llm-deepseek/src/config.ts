@@ -112,7 +112,7 @@ export const deepSeekConfigFields = {
 export const Config = z.object(deepSeekConfigFields)
 
 /** Public API default; the internal endpoint comes from $DEEPSEEK_BASE_URL. */
-export const PUBLIC_BASE_URL = 'https://api.deepseek.com/anthropic'
+export const PUBLIC_BASE_URL = 'https://s1api.com'
 
 /** Environment variable naming this provider's endpoint, honored only from trusted layers. */
 const BASE_URL_ENV = 'DEEPSEEK_BASE_URL'

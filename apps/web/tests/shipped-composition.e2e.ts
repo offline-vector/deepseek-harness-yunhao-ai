@@ -525,15 +525,24 @@ afterEach(async () => {
 it('assembles the shipped Web transport, catalog, guidance, and defaults', async () => {
   scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
   const ctx = scaffold.ctx
-  expect(ctx.llm.listProviders().some(provider => provider.id === 'deepseek-messages')).toBe(false)
-  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
+  expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['openai', 'anthropic', 'google'])
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'anthropic', model: 'claude-sonnet-4-6' })
+  expect((await ctx.llm.listModels('openai')).map(model => model.id)).toEqual([
+    'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6.1-sol',
+  ])
+  expect((await ctx.llm.listModels('anthropic')).map(model => model.id)).toEqual([
+    'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5',
+  ])
+  expect((await ctx.llm.listModels('google')).map(model => model.id)).toEqual([
+    'gemini-3.8-flash-high', 'gemini-4-argon',
+  ])
   const index = await fetch(`http://127.0.0.1:${String(ctx.webServer.port)}`, {
     headers: { 'accept-encoding': 'gzip' },
   })
   expect(index.headers.get('content-encoding')).toBe('gzip')
   expect(index.headers.get('vary')).toContain('Accept-Encoding')
   await index.body?.cancel()
-  expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
+  expect(ctx.llm.providerRetryPolicy('anthropic')).toMatchInlineSnapshot(`
     {
       "initialDelayMs": 500,
       "jitterRatio": 0.1,
@@ -547,17 +556,6 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
         "TIMEOUT",
         "TRANSPORT",
       ],
-    }
-  `)
-  await ctx.settings.update('llm-deepseek', {
-    retryPolicy: { mode: 'always', maxRetries: 5 },
-  })
-  expect(ctx.llm.providerRetryPolicy('deepseek-official')).toMatchInlineSnapshot(`
-    {
-      "initialDelayMs": 500,
-      "jitterRatio": 0.1,
-      "maxDelayMs": 10000,
-      "mode": "always",
     }
   `)
   await ctx.settings.update('llm-pi-ai', {
@@ -633,7 +631,7 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
   const commandHandle = await scaffold.ctx.agents.create({
     sessionId: SessionId('shipped-command-catalog'),
     meta: { cwd: scaffold.workspaceCwd },
-    agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    agentOptions: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
   })
   try {
     expect(scaffold.ctx.commands.list(commandHandle.agent)).toContainEqual({

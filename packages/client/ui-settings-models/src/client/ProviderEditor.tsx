@@ -43,6 +43,7 @@ import styles from './ModelsSection.module.css'
 /** Per-adapter-family curated field sets (unknown namespaces get the hint alone). */
 type EditorLayout = 'deepseek' | 'pi-ai' | 'unknown'
 
+const S1API_KEY_URL = 'https://s1api.com/keys'
 
 
 /** Props of {@link ProviderEditor}. */
@@ -408,6 +409,18 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
             <span className={styles['fieldLabel']}>
               {t('keyInput')}
               {authHelp}
+              {props.provider === 'deepseek-official'
+                ? (
+                  <a
+                    className={styles['linkButton']}
+                    href={S1API_KEY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {t('getS1ApiKey')}
+                  </a>
+                )
+                : null}
             </span>
             <ApiKeyInput
               t={t}

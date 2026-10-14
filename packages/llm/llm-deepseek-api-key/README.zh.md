@@ -1,5 +1,5 @@
 ---
-description: "DeepSeek API key authentication and model discovery."
+description: "S1API API Key 鉴权和兼容 Messages 路由的模型发现。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-为 `deepseek-official` 注册独立的鉴权和模型发现插件。通过 [llm-deepseek](../llm-deepseek/README.zh.md) 共用 Messages 请求实现；本包拥有凭据解析和目录可用性判断。
+为 S1API 后端的 `deepseek-official` 路由注册独立的鉴权和模型发现插件。通过 [llm-deepseek](../llm-deepseek/README.zh.md) 共用 Messages 请求实现；本包拥有凭据解析和目录可用性判断。内部路由 id 仍保持 `deepseek-official`，以兼容已有设置和会话。
 
 鉴权解析将验证后的 API key 放入 `x-api-key`，供 Messages 和 Files 请求共同使用。
 
@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用此包
 
-`apiKeyEnv` 默认为 `DEEPSEEK_API_KEY`，在每次请求和模型发现时解析凭据。已组合 credentials 服务时，按其优先级解析；只有未组合该服务时才直接读取启动环境。请求时凭据缺失以 `MISSING_CREDENTIAL` 失败；格式错误以 `INVALID_CREDENTIAL` 失败。模型发现在凭据缺失时返回空目录，在模型选择器中隐藏该路由，但保留其设置入口。凭据格式错误和其他读取失败继续上报。添加或删除密钥会影响下一次模型发现。
+`apiKeyEnv` 为兼容上游配置，默认为 `DEEPSEEK_API_KEY`，在每次请求和模型发现时解析凭据；产品界面会将其显示为 S1API API Key。已组合 credentials 服务时，按其优先级解析；只有未组合该服务时才直接读取启动环境。请求时凭据缺失以 `MISSING_CREDENTIAL` 失败；格式错误以 `INVALID_CREDENTIAL` 失败。模型发现在凭据缺失时返回空目录，在模型选择器中隐藏该路由，但保留其设置入口。凭据格式错误和其他读取失败继续上报。添加或删除密钥会影响下一次模型发现。
 
 ```yaml
 - id: llm-deepseek
@@ -56,7 +56,7 @@ kind: "package-reference"
 
 #### What the model sees
 
-`deepseek-official` 请求不包含本插件添加的模型可见文本；请求由共享 Messages 传输序列化。
+S1API 后端的 `deepseek-official` 请求不包含本插件添加的模型可见文本；请求由共享 Messages 传输序列化。
 
 #### Token effect
 
