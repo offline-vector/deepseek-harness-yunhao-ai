@@ -526,12 +526,12 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
   scaffold = await launchWebScaffold({ deepSeekMissingCredential: true })
   const ctx = scaffold.ctx
   expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['openai', 'anthropic', 'google'])
-  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'anthropic', model: 'claude-sonnet-4-6' })
+  expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'anthropic', model: 'claude-sonnet-5-5' })
   expect((await ctx.llm.listModels('openai')).map(model => model.id)).toEqual([
     'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-6-astra', 'gpt-6-sol', 'gpt-6.1-sol',
   ])
   expect((await ctx.llm.listModels('anthropic')).map(model => model.id)).toEqual([
-    'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5',
+    'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-sonnet-5',
   ])
   expect((await ctx.llm.listModels('google')).map(model => model.id)).toEqual([
     'gemini-3.8-flash-high', 'gemini-4-argon',
@@ -631,7 +631,7 @@ it('assembles the shipped Web transport, catalog, guidance, and defaults', async
   const commandHandle = await scaffold.ctx.agents.create({
     sessionId: SessionId('shipped-command-catalog'),
     meta: { cwd: scaffold.workspaceCwd },
-    agentOptions: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+    agentOptions: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
   })
   try {
     expect(scaffold.ctx.commands.list(commandHandle.agent)).toContainEqual({

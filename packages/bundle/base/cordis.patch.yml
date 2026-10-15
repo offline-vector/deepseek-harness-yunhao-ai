@@ -91,7 +91,7 @@
       name: '@deepseek-ai/dsh-agent-default-model'
       config:
         provider: anthropic
-        model: claude-sonnet-4-6
+        model: claude-sonnet-5-5
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -150,9 +150,10 @@
             apiKeyEnv: ANTHROPIC_API_KEY
             baseURL: https://s1api.com
             models:
-              - id: claude-opus-4-6
-              - id: claude-sonnet-4-6
-              - id: claude-haiku-4-5
+              - id: claude-opus-5-5
+              - id: claude-sonnet-5-5
+              - id: claude-fable-5-1
+              - id: claude-sonnet-5
           google:
             displayName: Gemini
             apiKeyEnv: GEMINI_API_KEY
