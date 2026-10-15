@@ -50,6 +50,7 @@ describe('desktop macOS release signature', () => {
     const config = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
     expect(config.protocols).toEqual([{ name: 'S1API', schemes: ['s1api'] }])
     expect(config.productName).toBe('S1API')
+    expect(config.extraMetadata.productName).toBe('S1API')
     expect(config.executableName).toBe('S1API')
     expect(portablePath(config.directories.output)).toContain('/.desktop-build/targets/mac-arm64/artifacts')
     expect(config.mac.extendInfo.NSMicrophoneUsageDescription).toContain('microphone')

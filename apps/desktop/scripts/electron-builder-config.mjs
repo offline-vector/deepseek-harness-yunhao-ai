@@ -107,6 +107,7 @@ export function createElectronBuilderConfig(
     appId,
     protocols: [{ name: 'S1API', schemes: ['s1api'] }],
     extraMetadata: {
+      productName: 'S1API',
       dshDesktopAppId: appId,
       dshDesktopUpdateChannel: update?.channel ?? 'nightly',
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
