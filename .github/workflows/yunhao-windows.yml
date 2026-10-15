@@ -40,7 +40,7 @@ jobs:
           exit $LASTEXITCODE
       - name: Build installer and verify packaged runtime
         run: |
-          pnpm run package:desktop:win:x64:unsigned
+          pnpm run package:desktop:win:x64:unsigned --build-version 0.2.1-alpha.3.20261015.4
           exit $LASTEXITCODE
       - name: Verify application name and unsigned metadata
         run: |
