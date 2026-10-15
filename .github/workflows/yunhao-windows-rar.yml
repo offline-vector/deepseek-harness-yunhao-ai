@@ -1,0 +1,100 @@
+name: Archive Yunhao AI Windows as RAR
+
+on:
+  workflow_run:
+    workflows: [Package Yunhao AI Windows]
+    branches: [codex/yunhao-ai-s1api]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Package Yunhao AI Windows run to archive
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: yunhao-windows-rar-${{ github.event.workflow_run.id || inputs.build_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ github.event.workflow_run.id || inputs.build_run_id }}
+    steps:
+      - name: Download installer from a successful build
+        run: |
+          if ($env:BUILD_RUN_ID -notmatch '^\d+$') { throw 'A numeric build run ID is required' }
+          $runJson = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:BUILD_RUN_ID"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read the source build' }
+          $run = $runJson | ConvertFrom-Json
+          if ($run.conclusion -ne 'success' -or
+              $run.path -ne '.github/workflows/yunhao-windows.yml' -or
+              $run.head_branch -ne 'codex/yunhao-ai-s1api' -or
+              $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY) {
+            throw 'Expected a successful Yunhao Windows build from this repository and release branch'
+          }
+          gh run download $env:BUILD_RUN_ID --repo $env:GITHUB_REPOSITORY --name yunhao-ai-windows-x64 --dir installer
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download the Windows installer' }
+          "Source build: $($run.html_url)" >> $env:GITHUB_STEP_SUMMARY
+          "Source commit: $($run.head_sha)" >> $env:GITHUB_STEP_SUMMARY
+      - name: Prepare verified RAR tool
+        run: |
+          $download = Join-Path $env:RUNNER_TEMP 'winrar-x64-723.exe'
+          Invoke-WebRequest 'https://www.rarlab.com/rar/winrar-x64-723.exe' -OutFile $download
+          $expected = '8ff0daf3ed564cc743c0e23ff2e253997ffc74460f9673f0b6dd037b2db4ce7b'
+          if ((Get-FileHash $download -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+            throw 'WinRAR download SHA256 mismatch'
+          }
+          $toolDirectory = Join-Path $env:RUNNER_TEMP 'yunhao-rar'
+          & 7z x -y "-o$toolDirectory" $download
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot extract the RAR tool' }
+          $rar = Join-Path $toolDirectory 'Rar.exe'
+          if (!(Test-Path $rar -PathType Leaf)) { throw 'RAR executable is missing' }
+          "RAR_EXE=$rar" >> $env:GITHUB_ENV
+      - name: Create RAR and verify the extracted installer
+        run: |
+          $installers = @(Get-ChildItem installer -File -Recurse)
+          if ($installers.Count -ne 1 -or
+              $installers[0].Name -notmatch '^deepseek-harness-(?<version>[0-9][0-9A-Za-z.+-]*)-win-x64-unsigned\.exe$') {
+            throw 'Expected exactly one unsigned Windows x64 installer'
+          }
+          $version = $Matches.version
+          $installer = $installers[0]
+          New-Item -ItemType Directory -Path distribution | Out-Null
+          $archiveName = "YHAI-$version-windows-x64.rar"
+          $archive = Join-Path (Resolve-Path distribution).Path $archiveName
+          & $env:RAR_EXE a -ma5 -m3 -ep -idq -y $archive $installer.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'RAR creation failed' }
+          & $env:RAR_EXE t -idq $archive
+          if ($LASTEXITCODE -ne 0) { throw 'RAR integrity check failed' }
+          $extracted = Join-Path $env:RUNNER_TEMP 'yunhao-rar-verify'
+          New-Item -ItemType Directory -Path $extracted | Out-Null
+          & $env:RAR_EXE x -idq -y $archive "$extracted\"
+          if ($LASTEXITCODE -ne 0) { throw 'RAR extraction failed' }
+          $originalHash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash
+          $extractedHash = (Get-FileHash (Join-Path $extracted $installer.Name) -Algorithm SHA256).Hash
+          if ($originalHash -ne $extractedHash) { throw 'Extracted installer SHA256 mismatch' }
+          $archiveHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$archiveHash  $archiveName" | Set-Content distribution/SHA256SUMS.txt -Encoding utf8NoBOM
+          "RAR archive: $archiveName" >> $env:GITHUB_STEP_SUMMARY
+          "Installer SHA256: $($originalHash.ToLowerInvariant())" >> $env:GITHUB_STEP_SUMMARY
+          "Archive SHA256: $archiveHash" >> $env:GITHUB_STEP_SUMMARY
+      - name: Retain Windows RAR download
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: yunhao-ai-windows-x64-rar
+          path: distribution/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

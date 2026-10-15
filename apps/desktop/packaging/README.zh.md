@@ -146,6 +146,8 @@ pnpm run package:desktop:win:x64:unsigned
 
 先运行 `pnpm install --frozen-lockfile`，再运行 `pnpm run package:desktop:win:x64:unsigned --check` 校验配置和工具，最后执行上面的完整命令。打包自行执行完整构建和隔离的运行时 smoke，不调用在线模型。阶段日志保留在 `.desktop-build/packaging-runs/`；仅构建成功不代表安装包验证通过。依赖安装和运行时准备需要访问 npm、GitHub release 资源和 nodejs.org；网络需要时使用现有 registry 和代理配置。缓存与工具位置属于构建机器配置，不在跟踪文件中固定个人路径。
 
+韵浩 [Windows 构建](../../../.github/workflows/yunhao-windows.yml)在发布分支运行成功后，自动触发 [RAR 打包](../../../.github/workflows/yunhao-windows-rar.yml)。其 `yunhao-ai-windows-x64-rar` 产物包含 RAR 压缩包和 SHA256 校验文件；解压后运行包内安装程序。归档流程检查 RAR 完整性，并比对解压后安装程序与原始 EXE 的 SHA256。如需重新打包已有的成功构建而不重复编译，手动运行归档流程并填写其 `build_run_id`。源产物缺失或过期会使归档任务失败。RAR 打包不会发布 GitHub Release，也不会将应用变为免安装版。
+
 <a id="local-macos-dmg-without-release-signing"></a>
 
 ## 无发布签名的本地 macOS DMG
