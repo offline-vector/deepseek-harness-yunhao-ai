@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 韵浩 AI (`dsh`) is a customized distribution of the open-source DeepSeek Harness agent framework.
 
-The default text route uses the S1API Anthropic Messages-compatible endpoint at `https://s1api.com` and sends requests to `/v1/messages`.
+The default model is `gpt-6.1-sol`. OpenAI uses `https://s1api.com/v1/responses`; Claude and Gemini use S1API’s `/v1/messages` compatibility endpoint. First-run setup requires no app account and offers separate OpenAI, Claude, and Gemini keys with a link to [S1API keys](https://s1api.com/keys).
 
 It is built on an **everything-is-a-plugin** architecture and powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512).
 

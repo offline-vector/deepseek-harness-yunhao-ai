@@ -409,13 +409,13 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
             <span className={styles['fieldLabel']}>
               {t('keyInput')}
               {authHelp}
-              {props.provider === 'deepseek-official'
+              {['openai', 'anthropic', 'google', 'deepseek-official'].includes(props.provider)
                 ? (
                   <a
                     className={styles['linkButton']}
                     href={S1API_KEY_URL}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                   >
                     {t('getS1ApiKey')}
                   </a>

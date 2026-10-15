@@ -910,7 +910,7 @@ describe('ModelsSection', () => {
     const keyLink = screen.getByRole('link', { name: en.getS1ApiKey })
     expect(keyLink.getAttribute('href')).toBe('https://s1api.com/keys')
     expect(keyLink.getAttribute('target')).toBe('_blank')
-    expect(keyLink.getAttribute('rel')).toBe('noreferrer')
+    expect(keyLink.getAttribute('rel')).toBe('noopener noreferrer')
     fireEvent.click(screen.getByText(en.customized))
     const baseURL = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
     // The deepseek placeholder is pinned to the public endpoint, not the

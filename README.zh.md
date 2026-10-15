@@ -4,7 +4,7 @@
 
 韵浩 AI（`dsh`）是基于 DeepSeek Harness 开源智能体框架定制的发行版。
 
-默认文本路由使用 S1API 的 Anthropic Messages 兼容入口 `https://s1api.com`，请求会发送到 `/v1/messages`。
+默认模型为 `gpt-6.1-sol`，OpenAI 请求使用 `https://s1api.com/v1/responses`；Claude 和 Gemini 使用 S1API 的 `/v1/messages` 兼容入口。首次启动无需登录软件，可分别填写 OpenAI、Claude、Gemini 密钥，并通过 [S1API 密钥页面](https://s1api.com/keys) 获取对应密钥。
 
 它构建于**一切皆插件**的架构之上，由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://arxiv.org/abs/2608.25512)。
 

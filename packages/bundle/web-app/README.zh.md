@@ -40,7 +40,7 @@ dsh --profile web --no-open --port 8080
 
 启动后你会看到 `dsh web:` 行，其根 URL 携带新的进程 token。除非 `--no-open` 或 SSH 会话抑制，否则默认浏览器会打开该 URL、取得签名 cookie，再重定向到不含认证参数的同一目录。页面加载且你可以与 agent 对话，就说明成功了。两种可预期的失败：前端未构建时，启动会以构建提示停止（checkout 中运行 `pnpm run build`）；浏览器无法打开时，stderr 会打印不含凭据的诊断，但服务器会继续运行——请自行打开已打印的启动 URL。
 
-**设置 → 模型**显示 **DeepSeek**，使用 `DEEPSEEK_API_KEY`。默认模型为 `deepseek-official` / `deepseek-flash`（DeepSeek-V4.1-Flash）。[DeepSeek 插件](../../llm/llm-deepseek/README.zh.md#endpoint-and-wire-format)使用 Messages API。
+**设置 → 模型**显示 OpenAI、Claude、Gemini 三个提供商，分别使用 `OPENAI_API_KEY`、`ANTHROPIC_API_KEY` 和 `GEMINI_API_KEY`。默认模型为 `openai` / `gpt-6.1-sol`。首次配置和密钥编辑器都提供 [S1API 密钥页面](https://s1api.com/keys)入口。
 
 已保存的模型选择覆盖组合默认值。设置卡接受兼容 Messages 的 API 地址与凭据引用。
 
@@ -185,4 +185,4 @@ URL 行与浏览器交接都是就绪信号：监督方一观察到该行就发�
 
 </details>
 
-Web 组合包含账号 Remote 控制器和账号设置页面。
+韵浩 AI 的 Web 组合禁用账号 Remote 控制器和账号设置页面。
