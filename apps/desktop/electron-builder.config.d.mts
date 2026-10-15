@@ -3,8 +3,10 @@ import type { AfterPackContext, BeforePackContext } from 'app-builder-lib'
 /** Electron-builder fields asserted by the Desktop release tests. */
 export interface DesktopElectronBuilderConfig {
   readonly appId: string
+  readonly productName: '韵浩 AI'
+  readonly executableName: 'YHAI'
   readonly artifactName: string
-  readonly protocols: readonly [{ readonly name: 'DeepSeek Harness'; readonly schemes: readonly ['dsh'] }]
+  readonly protocols: readonly [{ readonly name: '韵浩 AI'; readonly schemes: readonly ['dsh'] }]
   readonly directories: {
     readonly output: string
   }
