@@ -1,8 +1,10 @@
-# 韵浩 AI
+# S1API
 
 English | [中文](README.zh.md)
 
-韵浩 AI (`dsh`) is a customized distribution of the open-source DeepSeek Harness agent framework.
+S1API (`dsh`) is a customized distribution of the open-source DeepSeek Harness agent framework.
+
+This branch builds the S1API desktop edition with the site's logo and the tagline “让每一次调用更简单”. Its application ID is `com.s1api.desktop`, its executable is `S1API`, and its default desktop data directory is `~/.s1api` (an explicit `DSH_HOME` still takes precedence). It installs alongside the YHAI edition. Supported reasoning models default to `high`; their other supported levels remain selectable without a “Default” entry.
 
 The default model is `gpt-6.1-sol`. OpenAI uses `https://s1api.com/v1/responses`; Claude and Gemini use S1API’s `/v1/messages` compatibility endpoint. First-run setup requires no app account and offers separate OpenAI, Claude, and Gemini keys with a link to [S1API keys](https://s1api.com/keys).
 
@@ -12,7 +14,7 @@ Documentation: [https://deepseek-harness.github.io/deepseek-harness/](https://de
 
 ## Developer preview
 
-韵浩 AI is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+S1API is in _developer preview_ and iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
 
 Review the [safety notice](SAFETY.md) before running the project.
 
@@ -64,7 +66,7 @@ For agents, follow [AGENTS.md](AGENTS.md).
 
 ```bibtex
 @misc{deepseek-harness2026,
-  title={韵浩 AI: Everything is a Plugin},
+  title={S1API: Everything is a Plugin},
   author={DeepSeek-AI},
   year={2026},
   publisher={GitHub},

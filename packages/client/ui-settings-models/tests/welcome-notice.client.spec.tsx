@@ -107,7 +107,7 @@ describe('WelcomeNotice', () => {
   it('uses the exact owner copy in both GUI locales', () => {
     expect(WELCOME_NOTICE_COPY.en).toEqual({
       title: 'Preview Notice',
-      body: 'Yunhao AI is a preview build based on the open-source DeepSeek Harness framework. The next step lets you configure your S1API keys. You can change keys and models later in Settings.',
+      body: 'S1API is a preview build based on the open-source DeepSeek Harness framework. The next step lets you configure your S1API keys. You can change keys and models later in Settings.',
       continueLabel: 'Continue',
     })
     expect(en.welcomeBody).toBe(WELCOME_NOTICE_COPY.en.body)

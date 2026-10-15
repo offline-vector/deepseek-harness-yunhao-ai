@@ -1,5 +1,5 @@
 ---
-description: "面向侧栏和会话首屏的韵浩 AI 品牌填充，仅在官方构建中生效；供选择或替换品牌呈现的用户与维护者阅读。"
+description: "面向侧栏和会话首屏的S1API 品牌填充，仅在官方构建中生效；供选择或替换品牌呈现的用户与维护者阅读。"
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-本包让以 `official` profile 构建的客户端在侧栏和会话首屏显示韵浩 AI 标志，并在侧栏显示韵浩 AI 名称。其他构建 profile 使用外壳的回退品牌与本地构建标签。使用其他品牌的部署应提供替代品牌包。本包不保留运行时状态，也不影响模型请求。
+本包让以 `official` profile 构建的客户端在侧栏和会话首屏显示S1API 标志，并在侧栏显示S1API 名称。其他构建 profile 使用外壳的回退品牌与本地构建标签。使用其他品牌的部署应提供替代品牌包。本包不保留运行时状态，也不影响模型请求。
 
 ## 目录
 
@@ -25,11 +25,11 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-在韵浩 AI 部署中，将本插件挂载到浏览器插件名单，然后以 `official` profile 构建客户端，让填充得以注册。
+在S1API 部署中，将本插件挂载到浏览器插件名单，然后以 `official` profile 构建客户端，让填充得以注册。
 
 ### 选择 profile
 
-`DSH_CLIENT_BUILD_PROFILE` 决定渲染哪个品牌。`official` 构建在侧栏和会话首屏使用韵浩 AI 标志，并在侧栏显示名称。任何其他取值都让外壳使用回退品牌与本地构建标签。插件仍会照常加载并通过校验；只有注册受 profile 门控。
+`DSH_CLIENT_BUILD_PROFILE` 决定渲染哪个品牌。`official` 构建在侧栏和会话首屏使用S1API 标志，并在侧栏显示名称。任何其他取值都让外壳使用回退品牌与本地构建标签。插件仍会照常加载并通过校验；只有注册受 profile 门控。
 
 ### 替换品牌
 

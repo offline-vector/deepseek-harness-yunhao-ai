@@ -2,33 +2,33 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
-/ai:
-  en: c08c2e4cdbb7d23c
-  zh: e845cb5502fe0241
-/ai/developer-preview:
-  en: 3fc4334a7548dbc5
-  zh: d735e80c41ec4a4c
-/ai/run:
+/s1api:
+  en: 11bfb26f912a1c4a
+  zh: 93549135a7b771f9
+/s1api/developer-preview:
+  en: 9ac8703340bbea7e
+  zh: 930232ce3eb4389c
+/s1api/run:
   en: 4e0248e4c6474fc6
   zh: eb2fb8d78c7d6bc0
-/ai/run/run-from-npm:
+/s1api/run/run-from-npm:
   en: e22005cd42e6cbad
   zh: 0f536f4208df1d60
-/ai/run/run-from-source:
+/s1api/run/run-from-source:
   en: 819e3f7c144d0d64
   zh: de815f040975dba7
-/ai/community-and-support:
+/s1api/community-and-support:
   en: 20acf6451fdc869b
   zh: d06246dd019ecef7
-/ai/contributing:
+/s1api/contributing:
   en: cabc2d3e9f8898bd
   zh: 83b6d238bae29ce3
-/ai/development:
+/s1api/development:
   en: 803ca2b11b497bed
   zh: 8b4071eb0e7783ef
-/ai/citation:
+/s1api/citation:
   en: 6704e9e5a8d49a91
   zh: 85c9cdd8d56f8e9d
-/ai/license:
+/s1api/license:
   en: 926995344fc1c72b
   zh: c92fab5abf85932f

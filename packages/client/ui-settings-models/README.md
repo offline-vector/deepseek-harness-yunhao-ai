@@ -115,7 +115,7 @@ These pages cover the settings base, the seams this page joins, and the design r
 
 -----
 
-Yunhao AI’s default composition does not load the account-login plugin. First-run setup and all three default provider key editors link to the S1API keys page.
+S1API’s default composition does not load the account-login plugin. First-run setup and all three default provider key editors link to the S1API keys page.
 
 <a id="model-experience"></a>
 ## Model Experience

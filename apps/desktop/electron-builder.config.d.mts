@@ -3,10 +3,10 @@ import type { AfterPackContext, BeforePackContext } from 'app-builder-lib'
 /** Electron-builder fields asserted by the Desktop release tests. */
 export interface DesktopElectronBuilderConfig {
   readonly appId: string
-  readonly productName: '韵浩 AI'
-  readonly executableName: 'YHAI'
+  readonly productName: 'S1API'
+  readonly executableName: 'S1API'
   readonly artifactName: string
-  readonly protocols: readonly [{ readonly name: '韵浩 AI'; readonly schemes: readonly ['dsh'] }]
+  readonly protocols: readonly [{ readonly name: 'S1API'; readonly schemes: readonly ['s1api'] }]
   readonly directories: {
     readonly output: string
   }

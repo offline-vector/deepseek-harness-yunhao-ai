@@ -1,13 +1,13 @@
 import type { IconProps } from './icons/props.ts'
 
-/** Display options for the Yunhao AI logo. */
+/** Display options for the S1API logo. */
 export interface BrandWordmarkProps extends IconProps {
   /** Kept for callers that previously selected the wordmark variant. */
   includeMark?: boolean | undefined
 }
 
 /**
- * Render the Yunhao AI logo image.
+ * Render the S1API logo image.
  * @param props.size - square edge in px (default 24).
  * @param props.className - extra class for layout placement.
  * @param props.includeMark - retained for API compatibility.

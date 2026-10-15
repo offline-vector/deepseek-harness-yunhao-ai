@@ -1,5 +1,5 @@
 ---
-description: "Yunhao AI branding for the sidebar and conversation hero, active only in official builds; for users and maintainers choosing or replacing brand presentation."
+description: "S1API branding for the sidebar and conversation hero, active only in official builds; for users and maintainers choosing or replacing brand presentation."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package gives an `official` client build the Yunhao AI mark in the sidebar and conversation hero, and the Yunhao AI name in the sidebar. Other build profiles use the shell's fallback branding and local-build label. Deployments with another identity should provide a replacement brand package. It has no runtime state and does not affect model requests.
+This package gives an `official` client build the S1API mark in the sidebar and conversation hero, and the S1API name in the sidebar. Other build profiles use the shell's fallback branding and local-build label. Deployments with another identity should provide a replacement brand package. It has no runtime state and does not affect model requests.
 
 ## Table of Contents
 
@@ -25,11 +25,11 @@ This package gives an `official` client build the Yunhao AI mark in the sidebar 
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin in the browser roster of a Yunhao AI deployment, then build the client with the `official` profile so the occupants register.
+Mount this plugin in the browser roster of a S1API deployment, then build the client with the `official` profile so the occupants register.
 
 ### Choosing the profile
 
-`DSH_CLIENT_BUILD_PROFILE` selects which brand renders. An `official` build shows the Yunhao AI mark in the sidebar and conversation hero, and the name in the sidebar. Any other value leaves the shell's fallback branding and local-build label in place. The plugin still loads and validates in both cases; only the registration is profile-gated.
+`DSH_CLIENT_BUILD_PROFILE` selects which brand renders. An `official` build shows the S1API mark in the sidebar and conversation hero, and the name in the sidebar. Any other value leaves the shell's fallback branding and local-build label in place. The plugin still loads and validates in both cases; only the registration is profile-gated.
 
 ### Replacing the brand
 

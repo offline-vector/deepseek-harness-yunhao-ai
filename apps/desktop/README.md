@@ -208,7 +208,7 @@ Dependency installation does not run the locked Electron package's separate bina
 
 ### Startup onboarding
 
-After Host startup and locale preference loading, Yunhao AI opens the main workspace without a native account-login window or account-state subscription. The workspace’s [S1API key setup](../../packages/client/ui-settings-models/README.md#first-run-dialogs) owns first-run configuration: users can obtain provider keys, save filled fields, or configure later.
+After Host startup and locale preference loading, S1API opens the main workspace without a native account-login window or account-state subscription. The workspace’s [S1API key setup](../../packages/client/ui-settings-models/README.md#first-run-dialogs) owns first-run configuration: users can obtain provider keys, save filled fields, or configure later.
 
 The workspace and native menus share `locale.preference`. An explicit language wins; otherwise the first supported OS language is used, falling back to English.
 
@@ -344,7 +344,7 @@ An unpackaged Electron process uses `.desktop-build/development/project` under i
 
 ## Known limitations
 
-- Yunhao AI has no account sign-in; Windows material rendering still requires platform QA.
+- S1API has no account sign-in; Windows material rendering still requires platform QA.
 
 - Release signing, notarization, update hosting, and previous-version installed-artifact qualification require the production release environment.
 - Dependency lifecycle scripts follow pnpm’s build permissions; Desktop provides no separate approval dialog.

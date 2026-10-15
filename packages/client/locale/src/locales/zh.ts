@@ -31,7 +31,7 @@ export const zh = {
   'collapse': '收起',
   'expand': '展开',
   'back': '返回',
-  'brand.localBuild': '韵浩 AI',
+  'brand.localBuild': 'S1API',
   'workspace.defaultName': '默认工作区',
   'unknown': '未知',
   'none': '无',

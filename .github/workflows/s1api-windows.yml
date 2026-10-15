@@ -1,0 +1,108 @@
+name: Package S1API Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/s1api-desktop]
+    paths: [.github/workflows/s1api-windows.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: s1api-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24.16.0'
+      - name: Install locked dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+      - name: Check packaging toolchain
+        run: |
+          pnpm run package:desktop:win:x64:unsigned --check
+          exit $LASTEXITCODE
+      - name: Build installer and verify packaged runtime
+        run: |
+          pnpm run package:desktop:win:x64:unsigned --build-version 0.2.1-alpha.3.20261015.1
+          exit $LASTEXITCODE
+      - name: Verify application name and unsigned metadata
+        run: |
+          $app = 'apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/win-unpacked/S1API.exe'
+          if (!(Test-Path $app)) { throw 'S1API.exe was not packaged' }
+          if ((Get-Item $app).VersionInfo.ProductName -ne 'S1API') { throw 'Unexpected product name' }
+      - name: Prepare verified RAR tool
+        run: |
+          $download = Join-Path $env:RUNNER_TEMP 'winrar-x64-723.exe'
+          Invoke-WebRequest 'https://www.rarlab.com/rar/winrar-x64-723.exe' -OutFile $download
+          $expected = '8ff0daf3ed564cc743c0e23ff2e253997ffc74460f9673f0b6dd037b2db4ce7b'
+          if ((Get-FileHash $download -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
+            throw 'WinRAR download SHA256 mismatch'
+          }
+          $toolDirectory = Join-Path $env:RUNNER_TEMP 's1api-rar'
+          & 7z x -y "-o$toolDirectory" $download
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot extract the RAR tool' }
+          $rar = Join-Path $toolDirectory 'Rar.exe'
+          if (!(Test-Path $rar -PathType Leaf)) { throw 'RAR executable is missing' }
+          "RAR_EXE=$rar" >> $env:GITHUB_ENV
+      - name: Create RAR and verify the extracted installer
+        run: |
+          $installers = @(Get-ChildItem 'apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts' -Filter '*.exe' -File)
+          if ($installers.Count -ne 1 -or
+              $installers[0].Name -notmatch '^deepseek-harness-(?<version>[0-9][0-9A-Za-z.+-]*)-win-x64-unsigned\.exe$') {
+            throw 'Expected exactly one unsigned Windows x64 installer'
+          }
+          $version = $Matches.version
+          $installer = $installers[0]
+          New-Item -ItemType Directory -Path distribution | Out-Null
+          $archiveName = "S1API-$version-windows-x64.rar"
+          $archive = Join-Path (Resolve-Path distribution).Path $archiveName
+          & $env:RAR_EXE a -ma5 -m3 -ep -idq -y $archive $installer.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'RAR creation failed' }
+          & $env:RAR_EXE t -idq $archive
+          if ($LASTEXITCODE -ne 0) { throw 'RAR integrity check failed' }
+          $extracted = Join-Path $env:RUNNER_TEMP 's1api-rar-verify'
+          New-Item -ItemType Directory -Path $extracted | Out-Null
+          & $env:RAR_EXE x -idq -y $archive "$extracted\"
+          if ($LASTEXITCODE -ne 0) { throw 'RAR extraction failed' }
+          $originalHash = (Get-FileHash $installer.FullName -Algorithm SHA256).Hash
+          $extractedHash = (Get-FileHash (Join-Path $extracted $installer.Name) -Algorithm SHA256).Hash
+          if ($originalHash -ne $extractedHash) { throw 'Extracted installer SHA256 mismatch' }
+          $archiveHash = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$archiveHash  $archiveName" | Set-Content distribution/SHA256SUMS.txt -Encoding utf8NoBOM
+          "RAR archive: $archiveName" >> $env:GITHUB_STEP_SUMMARY
+          "Installer SHA256: $($originalHash.ToLowerInvariant())" >> $env:GITHUB_STEP_SUMMARY
+          "Archive SHA256: $archiveHash" >> $env:GITHUB_STEP_SUMMARY
+      - name: Retain Windows RAR download
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: s1api-windows-x64-rar
+          path: distribution/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Retain packaging diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: s1api-windows-logs
+          path: apps/desktop/.desktop-build/packaging-runs/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7

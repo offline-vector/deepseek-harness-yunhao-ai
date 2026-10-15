@@ -7,7 +7,7 @@
   },
   {
     "role": "hide",
-    "label": "隐藏 韵浩 AI"
+    "label": "隐藏 S1API"
   },
   {
     "role": "hideOthers",
@@ -19,6 +19,6 @@
   },
   {
     "role": "quit",
-    "label": "退出 韵浩 AI"
+    "label": "退出 S1API"
   }
 ]

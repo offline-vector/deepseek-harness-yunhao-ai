@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-/** Yunhao's shipped composition keeps settings and omits both account login surfaces. */
+/** S1API's shipped composition keeps settings and omits both account login surfaces. */
 import { afterEach, expect, vi } from 'vitest'
 import { createClientTest, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 

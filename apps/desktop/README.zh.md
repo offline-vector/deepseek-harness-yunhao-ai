@@ -208,7 +208,7 @@ Web 侧的对应命令是 `pnpm run dev:web` 与 `pnpm run start:web`，见[开�
 
 ### 启动引导
 
-Host 启动并读取语言偏好后，韵浩 AI 直接打开主界面，不显示原生账号登录窗口，也不监听账号登录状态。主界面的 [S1API 密钥引导](../../packages/client/ui-settings-models/README.zh.md#first-run-dialogs)负责首次配置；用户可获取对应提供商的密钥、保存已填写项或稍后配置。
+Host 启动并读取语言偏好后，S1API 直接打开主界面，不显示原生账号登录窗口，也不监听账号登录状态。主界面的 [S1API 密钥引导](../../packages/client/ui-settings-models/README.zh.md#first-run-dialogs)负责首次配置；用户可获取对应提供商的密钥、保存已填写项或稍后配置。
 
 主界面与桌面菜单读取共享的 `locale.preference`。明确选择的语言优先，否则按系统语言顺序匹配并回退到英文。
 
@@ -344,7 +344,7 @@ node apps/desktop/node_modules/pnpm/bin/pnpm.mjs --dir apps/desktop run test:upd
 
 ## 已知限制
 
-- 韵浩 AI 不提供账号登录；Windows 材质效果仍需平台验证。
+- S1API 不提供账号登录；Windows 材质效果仍需平台验证。
 
 - 发布签名、公证、更新托管和跨上一版本的已安装产物验证需要生产发布环境。
 - 依赖的生命周期脚本遵循 pnpm 的构建权限；Desktop 不提供单独的审批对话框。

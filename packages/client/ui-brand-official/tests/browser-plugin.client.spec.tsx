@@ -78,8 +78,8 @@ describe('official browser-brand plugin', () => {
   })
 
   it('renders the official name independently from both requested mark sizes', () => {
-    const name = render(<OfficialBrandName t={() => '韵浩 AI'} />)
-    expect(name.container.textContent).toBe('韵浩 AI')
+    const name = render(<OfficialBrandName t={() => 'S1API'} />)
+    expect(name.container.textContent).toBe('S1API')
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} />)

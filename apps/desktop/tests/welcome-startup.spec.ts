@@ -172,7 +172,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it.each([false, true])('opens Yunhao without native login when no keys exist (Windows update=%s)', async (updated) => {
+it.each([false, true])('opens S1API without native login when no keys exist (Windows update=%s)', async (updated) => {
   vi.resetModules()
   vi.clearAllMocks()
   state.preference = 'zh'

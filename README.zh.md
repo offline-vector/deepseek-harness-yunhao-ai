@@ -1,8 +1,10 @@
-# 韵浩 AI
+# S1API
 
 [English](README.md) | 中文
 
-韵浩 AI（`dsh`）是基于 DeepSeek Harness 开源智能体框架定制的发行版。
+S1API（`dsh`）是基于 DeepSeek Harness 开源智能体框架定制的发行版。
+
+本分支构建纯 S1API 桌面版，使用站点 logo 和“让每一次调用更简单”文案。应用标识为 `com.s1api.desktop`，进程名为 `S1API`，默认桌面数据目录为 `~/.s1api`（显式设置的 `DSH_HOME` 仍优先），可与 YHAI 版并存。支持推理等级的模型默认使用 `high`，仍可选择模型支持的其他档位，菜单不再提供“Default”选项。
 
 默认模型为 `gpt-6.1-sol`，OpenAI 请求使用 `https://s1api.com/v1/responses`；Claude 和 Gemini 使用 S1API 的 `/v1/messages` 兼容入口。首次启动无需登录软件，可分别填写 OpenAI、Claude、Gemini 密钥，并通过 [S1API 密钥页面](https://s1api.com/keys) 获取对应密钥。
 
@@ -12,7 +14,7 @@
 
 ## 开发者预览
 
-韵浩 AI 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
+S1API 处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
 
 运行本项目前，请阅读[安全说明](SAFETY.zh.md)。
 
@@ -83,7 +85,7 @@ pnpm dsh web
 
 ```bibtex
 @misc{deepseek-harness2026,
-  title={韵浩 AI: Everything is a Plugin},
+  title={S1API: Everything is a Plugin},
   author={DeepSeek-AI},
   year={2026},
   publisher={GitHub},

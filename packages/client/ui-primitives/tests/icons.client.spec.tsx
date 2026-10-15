@@ -124,7 +124,7 @@ describe('product icon set', () => {
 })
 
 describe('FishLogo', () => {
-  it('renders the Yunhao AI image at the requested square size', () => {
+  it('renders the S1API image at the requested square size', () => {
     const { container } = render(<primitives.FishLogo />)
     const image = container.querySelector('img')!
     expect(image.getAttribute('width')).toBe('24')

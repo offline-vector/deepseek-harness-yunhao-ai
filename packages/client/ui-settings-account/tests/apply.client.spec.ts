@@ -22,7 +22,7 @@ import type { AccountPlatformHostInjected } from '../src/client/AccountPlatformH
 import { AccountQuotaNotice } from '../src/client/AccountQuotaNotice.tsx'
 import type { AccountQuotaNoticeInjected } from '../src/client/AccountQuotaNotice.tsx'
 
-// The upstream account feature is opt-in and excluded from Yunhao's shipped roster.
+// The upstream account feature is opt-in and excluded from S1API's shipped roster.
 const it = createClientTest({ roster: ClientRoster.of([...webApp.rows, {
   name: '@deepseek-ai/dsh-client-ui-settings-account', inject: [], immediately: false,
 }]) })

@@ -1,6 +1,7 @@
 #!/bin/sh
 # Run the installed CLI without changing the invoking shell or working directory.
 set -e
+if [ -z "${DSH_HOME:-}" ]; then export DSH_HOME="$HOME/.s1api"; fi
 launcher=$0
 while [ -L "$launcher" ]; do
   directory=$(CDPATH= cd -- "$(dirname -- "$launcher")" && pwd -P)
@@ -11,4 +12,4 @@ while [ -L "$launcher" ]; do
   esac
 done
 resources=$(CDPATH= cd -- "$(dirname -- "$launcher")/../../.." && pwd -P)
-ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/YHAI" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"
+ELECTRON_RUN_AS_NODE=1 exec "$resources/../MacOS/S1API" --expose-internals "$resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js" "$@"
