@@ -47,6 +47,8 @@ Run `dsh --profile my-profile "your task"` and you get a working agent with mode
 
 ### What you get
 
+The bundled Gemini 3.8 Flash High and Gemini 4 routes enable text and image input by default. User-saved model settings can override these defaults.
+
 Out of the box, every profile built on this core provides: S1API connections for OpenAI, Claude, and Gemini (default model `gpt-6.1-sol`; routes and models remain configurable in Settings), the full tool set — file editing, shell commands, web search, public HTTP(S) fetch, subagents, task and goal tracking — durable sessions that survive restarts, and the default permission policy that confines file writes to your workspace and asks before risky actions. Web fetch runs without per-call approval; its provider rejects non-public destinations. Feedback stays in the Session log. [OTel session upload](../../session/session-telemetry-otel/README.md) defaults to `FEEDBACK_ONLY` for all users, including `deepseek-official`: new text feedback, message ratings, edits, and withdrawals release the complete canonical prefix through that event, including context. Later records wait for the next explicit feedback; sending an authorized batch needs no further interaction or model call. `DISABLED` prevents OTel capture. The default-on [DeepSeek session-log contributor](../../session/session-log-deepseek/README.md) remains a separate request path.
 
 Both `subagent` and `subagent_fork` create managed children and return a child id immediately. Use `send_message` to steer active children or continue their conversations after completion. [Delegation-tool behavior](../../subagent/tool-subagent/README.md) describes result delivery and backend capabilities.

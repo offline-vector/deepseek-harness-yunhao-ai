@@ -185,9 +185,11 @@
             baseURL: https://s1api.com
             models:
               - id: gemini-3.8-flash-high
+                input: [text, image]
                 contextWindow: 1000000
                 maxTokens: 65536
               - id: gemini-4-argon
+                input: [text, image]
                 contextWindow: 1000000
                 maxTokens: 65536
                 name: Gemini 4
