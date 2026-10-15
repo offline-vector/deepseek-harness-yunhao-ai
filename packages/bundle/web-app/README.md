@@ -185,4 +185,4 @@ None.
 
 </details>
 
-Yunhao AI disables the account controller and account settings plugin; the Settings button and S1API key setup remain available.
+S1API AI disables the account controller and account settings plugin; the Settings button and S1API key setup remain available.
