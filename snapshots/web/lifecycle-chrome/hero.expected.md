@@ -12,14 +12,13 @@
 - tree "Sessions":
   - treeitem "workspace" [expanded]
   - treeitem "New Session" [selected]
-- button "Account menu": More
+- button "Settings"
 - banner:
   - button "Open right sidebar"
-- text: Into the Unknown Preview
+- text: Make every API call simpler Preview
 - button "Choose workspace": workspace
 - button "Standard mode"
-- textbox "Describe what you want to build, / commands, @ files or sessions":
-  - paragraph
+- textbox "Describe what you want to build, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash

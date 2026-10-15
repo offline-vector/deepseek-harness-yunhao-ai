@@ -1,4 +1,6 @@
+import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { SidebarBrandMarkOwnerProps } from '@deepseek-ai/dsh-client-ui-sidebar/client'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 
 interface BrandMarkProps extends SidebarBrandMarkOwnerProps {
   /** Host class preserving the conversation hero mark geometry. */
@@ -16,8 +18,10 @@ export function OfficialBrandMark({ size, className }: BrandMarkProps) {
 
 /**
  * Render the official name artwork without its independently slotted mark.
+ * @param props - Locale seat for the distribution's product name.
  * @returns the official name wordmark.
  */
-export function OfficialBrandName() {
-  return <span aria-label="韵浩 AI">韵浩 AI</span>
+export function OfficialBrandName({ t }: PropsLocale<'common'>) {
+  const name = t('brand.localBuild')
+  return <span aria-label={name}>{name}</span>
 }

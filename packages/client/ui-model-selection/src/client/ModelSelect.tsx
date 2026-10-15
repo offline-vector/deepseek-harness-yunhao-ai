@@ -45,10 +45,10 @@ import { orderModelProviders } from './provider-order.ts'
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
 
-/** One dynamic effort row; undefined means preserve the provider default. */
+/** One adapter-advertised effort row. */
 interface EffortChoice {
   key: string
-  effort: string | undefined
+  effort: string
   label: string
 }
 
@@ -124,20 +124,15 @@ export function ModelSelect(
     : reasoning === undefined
       ? state.retainedEffort
       : effectiveEffort === undefined
-        ? t('effort.providerDefault')
+        ? undefined
         : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
   const effortChoices = useMemo<readonly EffortChoice[]>(() => reasoning === undefined
     ? []
-    : [
-      ...reasoning.defaultEffort === undefined
-        ? [{ key: 'provider-default', effort: undefined, label: t('effort.providerDefault') }]
-        : [],
-      ...reasoning.efforts.map((effort: ModelReasoningEffort) => ({
-        key: `effort:${effort.id}`,
-        effort: effort.id,
-        label: effort.name,
-      })),
-    ], [reasoning, t])
+    : reasoning.efforts.map((effort: ModelReasoningEffort) => ({
+      key: `effort:${effort.id}`,
+      effort: effort.id,
+      label: effort.name,
+    })), [reasoning])
   const { pending } = state
   const busy = pending !== null
 

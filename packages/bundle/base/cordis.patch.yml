@@ -92,6 +92,7 @@
       config:
         provider: openai
         model: gpt-6.1-sol
+        reasoningEffort: high
 
     - id: jobs
       name: '@deepseek-ai/dsh-jobs-local'
@@ -139,6 +140,7 @@
         providers:
           openai:
             displayName: OpenAI
+            reasoning: high
             apiKeyEnv: OPENAI_API_KEY
             api: openai-responses
             baseURL: https://s1api.com/v1
@@ -160,6 +162,7 @@
                 maxTokens: 128000
           anthropic:
             displayName: Claude
+            reasoning: high
             apiKeyEnv: ANTHROPIC_API_KEY
             baseURL: https://s1api.com
             models:

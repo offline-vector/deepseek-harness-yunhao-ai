@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../locale/tsconfig.client.json"
+    },
+    {
       "path": "../../../vendor/cordis"
     },
     {

@@ -19,7 +19,7 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.inject('sidebar.brand.name', () =>
       ctx.slots.inject('conversation.hero.brand.mark', function* () {
         yield ctx.slots.register({ name: 'sidebar.brand.mark' }, OfficialBrandMark)
-        yield ctx.slots.register({ name: 'sidebar.brand.name' }, OfficialBrandName)
+        yield ctx.slots.register({ name: 'sidebar.brand.name', locale: 'common' }, OfficialBrandName)
         yield ctx.slots.register({ name: 'conversation.hero.brand.mark' }, OfficialBrandMark)
       })))
 }
