@@ -753,6 +753,14 @@ export class Session implements SessionFace {
     const awaitingFirstTurn = this.firstPromptPendingTurn
     if (event.type === 'turn/start') this.firstPromptPendingTurn = false
     this.eventSource.append(entry)
+    // The running bit normally arrives through api-session/status. A status
+    // update can be lost while the control stream reconnects, even though the
+    // addressed Session journal still delivers the durable turn boundary. Use
+    // those live boundaries as a display fallback so a completed response
+    // cannot leave the composer spinning forever. A queued turn's next
+    // turn/start immediately restores the running state.
+    if (event.type === 'turn/start') this.handleRunning(true)
+    else if (event.type === 'turn/end') this.handleRunning(false)
     // After the feed append: the conversation assembly's animation frame is
     // registered by the feed subscribers above, so the echo-retirement frame
     // scheduled here always runs after the durable node became renderable.

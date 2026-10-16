@@ -106,6 +106,26 @@ export async function* translate(events: AsyncIterable<Record<string, unknown>>,
   const usage: TokenUsage = { inputTokens: 0, outputTokens: 0 }
   let started = false
   let reason: FinishReason | undefined
+  const terminalChunks = (): [StreamChunk, StreamChunk] => {
+    if (reason === undefined || [...blocks.values()].some(block => !block.closed)) {
+      return malformed('message_stop without settled blocks and stop reason')
+    }
+    if (blocks.size === 0 && reason.kind === 'stop') throw new LlmError('DeepSeek Messages returned no content', 'EMPTY_RESPONSE')
+    // Truncated tool JSON is retained in the stream, then pruned by the shared assembler.
+    if (reason.kind !== 'max-tokens') {
+      for (const { content } of blocks.values()) {
+        if (content.type !== 'tool-call') continue
+        let parsed: unknown
+        try { parsed = JSON.parse(content.arguments) } catch (_invalidProviderToolJson) { return malformed('tool input is invalid JSON') }
+        object(parsed)
+      }
+    }
+    usage.totalTokens = usage.inputTokens + usage.outputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
+    return [
+      { type: 'usage', usage },
+      { type: 'finish', reason, replayState: replayState(model, [...blocks.values()].map(block => block.replay)) },
+    ]
+  }
   for await (const event of events) {
     if (event.type === 'message_start') {
       if (started) return malformed('duplicate message_start')
@@ -139,26 +159,25 @@ export async function* translate(events: AsyncIterable<Record<string, unknown>>,
         block.closed = true
         if (block.content.type === 'tool-call' && block.json.length > 0) block.content.arguments = block.json
         yield { type: 'block-end', index: block.index, block: { ...block.content } }
+        if (reason !== undefined && blocks.size > 0 && [...blocks.values()].every(block => block.closed)) {
+          yield* terminalChunks()
+          return
+        }
       }
     } else if (event.type === 'message_delta') {
       const delta = object(event.delta)
       if (delta.stop_reason != null) reason = stopReason(delta.stop_reason)
       if (event.usage !== undefined) updateUsage(usage, event.usage)
-    } else {
-      if (reason === undefined || [...blocks.values()].some(block => !block.closed)) return malformed('message_stop without settled blocks and stop reason')
-      if (blocks.size === 0 && reason.kind === 'stop') throw new LlmError('DeepSeek Messages returned no content', 'EMPTY_RESPONSE')
-      // Truncated tool JSON is retained in the stream, then pruned by the shared assembler.
-      if (reason.kind !== 'max-tokens') {
-        for (const { content } of blocks.values()) {
-          if (content.type !== 'tool-call') continue
-          let parsed: unknown
-          try { parsed = JSON.parse(content.arguments) } catch (_invalidProviderToolJson) { return malformed('tool input is invalid JSON') }
-          object(parsed)
-        }
+      // Some compatible gateways forward the terminal message_delta but keep
+      // the response open or omit message_stop. Once every content block is
+      // closed, stop_reason is sufficient to settle the Harness stream; this
+      // also lets the adapter abort the now-unneeded HTTP response.
+      if (reason !== undefined && blocks.size > 0 && [...blocks.values()].every(block => block.closed)) {
+        yield* terminalChunks()
+        return
       }
-      usage.totalTokens = usage.inputTokens + usage.outputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
-      yield { type: 'usage', usage }
-      yield { type: 'finish', reason, replayState: replayState(model, [...blocks.values()].map(block => block.replay)) }
+    } else {
+      yield* terminalChunks()
       return
     }
   }

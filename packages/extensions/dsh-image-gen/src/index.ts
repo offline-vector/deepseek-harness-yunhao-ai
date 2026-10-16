@@ -868,6 +868,12 @@ export function apply(ctx: Context, config: Config = {}): void {
           result = deserializeImageJobResult(nativeJobs.read(id, owner.id).result)
           if (result !== undefined) imageJobResults.set(jobId, result)
         }
+        // Collecting a completed image is the user-visible end of this turn.
+        // Without this marker the AgentLoop treats the tool result as owing a
+        // follow-up model request, which sends the history ending in the
+        // assistant tool call back to Messages and can be rejected as an
+        // assistant/model-terminated request after the image is already shown.
+        if (view.status === 'completed' && result !== undefined) exec.concludeTurn()
         return {
           job_id: jobId,
           status: view.status,
@@ -880,6 +886,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       const view = localImageJobs.get(jobId, owner.id)
       if (view === undefined) throw new Error(`unknown image job ${jobId}`)
       const result = imageJobResults.get(jobId)
+      if (view.status === 'completed' && result !== undefined) exec.concludeTurn()
       return {
         job_id: jobId,
         status: view.status,

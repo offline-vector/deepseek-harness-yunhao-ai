@@ -39,6 +39,15 @@ describe('Messages stream', () => {
     expect(result.at(-1)).toMatchObject({ reason: { kind: 'stop' } })
   })
 
+  it('settles from a terminal message_delta when a compatible gateway omits message_stop', async () => {
+    const result = await chunks(translate(events([
+      ...textEvents.slice(0, 4),
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 5 } },
+    ]), MODEL))
+    expect(result.at(-2)).toMatchObject({ type: 'usage', usage: { inputTokens: 12, outputTokens: 5, totalTokens: 17 } })
+    expect(result.at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'stop' } })
+  })
+
   it.each([{}, { key: 'initial' }])('preserves initial tool input %j without JSON deltas', async (input) => {
     const result = await assemble(translate(events([start,
       { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'a', name: 'read', input } },
@@ -88,7 +97,7 @@ describe('Messages stream', () => {
   it('refuses unsupported response content, empty responses and premature EOF', async () => {
     await expect(chunks(translate(events([start, { type: 'content_block_start', index: 0, content_block: { type: 'redacted_thinking', data: 'x' } }]), MODEL))).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
     await expect(chunks(translate(events([start, ...end()]), MODEL))).rejects.toMatchObject({ code: 'EMPTY_RESPONSE' })
-    await expect(chunks(translate(events(textEvents.slice(0, -1)), MODEL))).rejects.toMatchObject({ code: 'STREAM_CLOSED' })
+    await expect(chunks(translate(events(textEvents.slice(0, 4)), MODEL))).rejects.toMatchObject({ code: 'STREAM_CLOSED' })
   })
 })
 
@@ -105,16 +114,18 @@ describe('SSE framing and provider failures', () => {
     const result = await chunks(translate(parseSse(body, () => { activity++ }), MODEL))
     return { result, activity }
   }
-  it('frames UTF-8 split at every byte and counts comments and ping as transport activity', async () => {
+  it('frames UTF-8 split at every byte and settles before a redundant message_stop', async () => {
     const result = await read(`\uFEFF: heartbeat\r\n\r\n${sse([{ type: 'ping' }, ...textEvents]).replaceAll('\n', '\r\n')}`, true)
     expect(result.result).toContainEqual({ type: 'text-delta', index: 0, text: 'Hello 世界' })
-    expect(result.activity).toBe(textEvents.length + 2)
+    // The terminal message_delta is enough to settle, so the parser does not
+    // need to consume the redundant message_stop that follows it.
+    expect(result.activity).toBe(textEvents.length + 1)
   })
   it.each(['data: not-json\n\n', 'data: []\n\n', 'event: ping\ndata: {"type":"other"}\n\n', 'data: {}\n\n'])('rejects malformed SSE %#', async (text) => {
     await expect(read(text)).rejects.toMatchObject({ code: 'MALFORMED_RESPONSE' })
   })
   it('does not flush an unterminated terminal event', async () => {
-    await expect(read(sse(textEvents).trimEnd())).rejects.toMatchObject({ code: 'STREAM_CLOSED' })
+    await expect(read(sse(textEvents.slice(0, 4)).trimEnd())).rejects.toMatchObject({ code: 'STREAM_CLOSED' })
   })
   it('normalizes in-band overloads', async () => {
     await expect(read(sse([{ type: 'error', error: { type: 'overloaded_error', message: 'busy' } }]))).rejects.toMatchObject({ code: 'SERVER' })

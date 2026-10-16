@@ -154,6 +154,23 @@ describe('live event path', () => {
     expect(session.eventSource.getSnapshot()).toBe(before)
   })
 
+  it('clears a stale running bit from a live turn end when status delivery is lost', async ({ mock, start }) => {
+    const session = await opened(mock, start, [])
+    session.handleRunning(true)
+    expect(session.getSnapshot().running).toBe(true)
+
+    // Simulate the status stream dropping the idle notification while the
+    // Session journal still delivers the durable terminal boundary.
+    await pushEvent(mock, ev.turnEnd(SessionSeq(0), 1))
+    expect(session.getSnapshot().running).toBe(false)
+
+    // A queued turn remains observable as running until its own end boundary.
+    await pushEvent(mock, ev.turnStart(SessionSeq(1), 2))
+    expect(session.getSnapshot().running).toBe(true)
+    await pushEvent(mock, ev.turnEnd(SessionSeq(2), 2))
+    expect(session.getSnapshot().running).toBe(false)
+  })
+
   it('keeps the authoritative host blank bit across unrelated log events', async ({ mock, start }) => {
     const session = await opened(mock, start, [])
     session.handleBlank(true)
