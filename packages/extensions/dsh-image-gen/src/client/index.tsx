@@ -76,6 +76,7 @@ import {
 import { conversationRegenerateRequest } from './conversation-regenerate.js'
 import { parseExtraFields, parseSizeTable } from './output-settings.js'
 import { DEFAULT_COMPAT_QUALITIES, validateOfficialSize } from '../openai-output.js'
+import { ImageModelPill, IMAGE_MODEL_PILL_STYLE, type ImageModelPillFace } from './image-model-pill.js'
 import { ImageProviderPill, PROVIDER_PILL_STYLE, type ProviderPillFace } from './provider-pill.js'
 import { writeSetting } from './settings-write.js'
 
@@ -159,6 +160,7 @@ interface ImageSettings {
   comfyuiTimeoutMs?: number
   saveToWorkspace?: boolean
   workspaceFolder?: string
+  showImageModelPill?: boolean
   showProviderPill?: boolean
 }
 interface CredentialInfo { configured?: boolean; source?: string; writable?: boolean }
@@ -360,8 +362,8 @@ const DICT = {
     folder: '工作区文件夹',
     folderHint: '相对当前会话工作区的子目录；留空表示工作区根目录。',
     uiSection: '界面',
-    showPill: '在对话输入栏显示生图切换胶囊',
-    showPillHint: '开启后，输入框工具行会显示一枚胶囊，随手切换默认生图 Provider，无需进入设置；默认关闭。',
+    showPill: '在对话输入栏显示图片模型选择器',
+    showPillHint: '开启后，图片模型选择器会显示在对话模型左侧；选择后直接作为 S1API 默认生图模型使用。默认开启。',
     fetchModels: '拉取模型',
     fetchingModels: '拉取中…',
     fetchModelsHint: '点击「拉取模型」用当前 Key 获取可用生图模型列表；也可手动输入。',
@@ -532,8 +534,8 @@ const DICT = {
     folder: 'Workspace folder',
     folderHint: 'Subdirectory of the session workspace; empty means the workspace root.',
     uiSection: 'Interface',
-    showPill: 'Show the image provider pill in the chat input bar',
-    showPillHint: 'Adds a small pill to the composer tool row for switching the default image provider without opening settings; off by default.',
+    showPill: 'Show the image-model selector in the chat input bar',
+    showPillHint: 'The selector appears to the left of the chat model and becomes the default S1API image model; on by default.',
     fetchModels: 'Fetch models',
     fetchingModels: 'Fetching…',
     fetchModelsHint: 'Click "Fetch models" to list image-capable models with the stored key; manual input still works.',
@@ -919,7 +921,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => {
     const style = document.createElement('style')
     style.dataset.plugin = 'dsh-image-gen'
-    style.textContent = `${STYLE}\n${STUDIO_STYLE}\n${INSPIRATION_STYLE}\n${PROVIDER_PILL_STYLE}\n${TL_CSS}\n${TL_THEME_CSS}`
+    style.textContent = `${STYLE}\n${STUDIO_STYLE}\n${INSPIRATION_STYLE}\n${IMAGE_MODEL_PILL_STYLE}\n${PROVIDER_PILL_STYLE}\n${TL_CSS}\n${TL_THEME_CSS}`
     document.head.appendChild(style)
     return () => {
       style.remove()
@@ -999,11 +1001,17 @@ export function apply(ctx: Context): void {
       inject: injectSettingsFace,
     }, ImageGenerationSettingsCard))
   }
-  // Composer tool-row pill (DSH official slot: 'conversation.input.right', the
-  // seat right beside the model select): switch the default image provider
-  // without leaving the chat. Writes the same 'provider' field as the card.
+  // Composer selectors: the image model sits immediately before the official
+  // conversation model selector; the legacy provider switcher remains in the
+  // right slot when explicitly enabled in existing settings.
   const injectComposerPill = (owner: Context): void => {
     const ownerRegister = owner.slots.register.bind(owner.slots) as unknown as (options: object, component: unknown) => () => void
+    ;(owner.slots.inject as (key: string, factory: () => () => void) => void)('conversation.input.left', () => ownerRegister({
+      name: 'conversation.input.left',
+      id: 'image-model',
+      order: 10,
+      inject: (): ImageModelPillFace => ({ scope, locale }),
+    }, ImageModelPill))
     ;(owner.slots.inject as (key: string, factory: () => () => void) => void)('conversation.input.right', () => ownerRegister({
       name: 'conversation.input.right',
       id: 'image-provider',
@@ -1369,7 +1377,7 @@ export function ImageGenerationSettingsCard(props: SettingsCardProps) {
   const [providerMessageIsError, setProviderMessageIsError] = useState(false)
   const [saveToWorkspace, setSaveToWorkspace] = useState(() => props.scope.getSnapshot().value?.saveToWorkspace ?? true)
   const [workspaceFolder, setWorkspaceFolder] = useState(() => props.scope.getSnapshot().value?.workspaceFolder ?? 'dsh-image-gen')
-  const [showPill, setShowPill] = useState(() => props.scope.getSnapshot().value?.showProviderPill === true)
+  const [showPill, setShowPill] = useState(() => props.scope.getSnapshot().value?.showImageModelPill !== false)
   const [uiMessage, setUiMessage] = useState('')
   const [uiMessageIsError, setUiMessageIsError] = useState(false)
   const [workspaceMessage, setWorkspaceMessage] = useState('')
@@ -1556,7 +1564,7 @@ export function ImageGenerationSettingsCard(props: SettingsCardProps) {
     setDefaultProvider(value?.provider ?? 'google')
     setSaveToWorkspace(value?.saveToWorkspace ?? true)
     setWorkspaceFolder(value?.workspaceFolder ?? 'dsh-image-gen')
-    setShowPill(value?.showProviderPill === true)
+    setShowPill(value?.showImageModelPill !== false)
     setRows((current) => {
       const next = {} as Record<Provider, ProviderRowState>
       for (const provider of IMAGE_PROVIDERS) {
@@ -1888,12 +1896,12 @@ export function ImageGenerationSettingsCard(props: SettingsCardProps) {
     })
   }
 
-  /** The pill toggle saves immediately, like the default-provider radio. */
+  /** The image-model selector toggle saves immediately. */
   const toggleShowPill = (next: boolean): void => {
     setShowPill(next)
     setUiMessage(''); setUiMessageIsError(false)
-    void saveSetting('showProviderPill', next).catch((cause: unknown) => {
-      setShowPill(snapshot.value?.showProviderPill === true)
+    void saveSetting('showImageModelPill', next).catch((cause: unknown) => {
+      setShowPill(snapshot.value?.showImageModelPill !== false)
       setUiMessage(cause instanceof Error ? cause.message : String(cause))
       setUiMessageIsError(true)
     })

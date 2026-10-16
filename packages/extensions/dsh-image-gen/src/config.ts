@@ -167,6 +167,8 @@ export interface Config {
   saveToWorkspace?: boolean
   /** Workspace subfolder for generated images; empty means the workspace root. */
   workspaceFolder?: string
+  /** Show the S1API image-model selector beside the chat model. */
+  showImageModelPill?: boolean
   /** Show the provider switcher beside the chat input. */
   showProviderPill?: boolean
 }
@@ -223,6 +225,7 @@ export const Config = z.object({
   comfyuiTimeoutMs: volatile(z.number().min(1_000).max(3_600_000).default(DEFAULT_COMFYUI_TIMEOUT_MS)),
   saveToWorkspace: volatile(z.boolean().default(true)),
   workspaceFolder: volatile(z.string().default(DEFAULT_WORKSPACE_FOLDER)),
+  showImageModelPill: volatile(z.boolean().default(true)),
   showProviderPill: volatile(z.boolean().default(false)),
 }) as unknown as z<Config>
 
