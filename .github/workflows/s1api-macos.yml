@@ -15,13 +15,14 @@ concurrency:
 
 jobs:
   package:
-    runs-on: [self-hosted, macOS, ARM64, dsh-mac-package-trial]
+    runs-on: macos-14
     timeout-minutes: 180
     defaults:
       run:
         shell: bash
     env:
       DSH_TELEMETRY_DISABLED: '1'
+      RELEASE_VERSION: 0.2.1-alpha.3.20261016.1
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -35,21 +36,22 @@ jobs:
       - name: Check packaging toolchain
         run: pnpm run package:desktop:mac:arm64:unsigned --check
       - name: Build unsigned DMG
-        run: pnpm run package:desktop:mac:arm64:unsigned --build-version 0.2.1-alpha.3.20261015.2
+        run: pnpm run package:desktop:mac:arm64:unsigned --build-version "$RELEASE_VERSION"
       - name: Verify application and DMG
         run: |
           app='apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/mac-arm64/S1API.app'
-          dmg='apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/deepseek-harness-0.2.1-alpha.3.20261015.2-mac-arm64-unsigned.dmg'
+          dmg="apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/deepseek-harness-$RELEASE_VERSION-mac-arm64-unsigned.dmg"
           test -d "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$app/Contents/Info.plist")" = 'S1API'
           test -f "$dmg"
           hdiutil verify "$dmg"
       - name: Prepare DMG download and checksum
         run: |
-          dmg='apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/deepseek-harness-0.2.1-alpha.3.20261015.2-mac-arm64-unsigned.dmg'
+          dmg="apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/deepseek-harness-$RELEASE_VERSION-mac-arm64-unsigned.dmg"
           mkdir -p distribution
-          cp "$dmg" distribution/S1API-0.2.1-alpha.3.20261015.2-mac-arm64-unsigned.dmg
-          shasum -a 256 distribution/S1API-0.2.1-alpha.3.20261015.2-mac-arm64-unsigned.dmg > distribution/SHA256SUMS.txt
+          output="distribution/S1API-$RELEASE_VERSION-mac-arm64-unsigned.dmg"
+          cp "$dmg" "$output"
+          shasum -a 256 "$output" > distribution/SHA256SUMS.txt
       - name: Retain macOS DMG
         uses: actions/upload-artifact@v7.0.1
         with:

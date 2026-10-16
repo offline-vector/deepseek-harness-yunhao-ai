@@ -10,7 +10,11 @@ const CLIENT_EXTERNALS = [
 
 const host: UserConfig = {
   name: 'dsh-image-gen',
-  entry: ['lib/types/index.js'],
+  // This package is an optional extension and is not part of the upstream
+  // aggregate TypeScript reference graph. Bundle its source directly so a
+  // clean CI checkout does not depend on ignored lib/types output from pnpm
+  // lifecycle scripts.
+  entry: ['src/index.ts'],
   outDir: 'lib',
   format: ['esm'],
   platform: 'node',
@@ -22,7 +26,7 @@ const host: UserConfig = {
 
 const client: UserConfig = {
   name: 'dsh-image-gen/client',
-  entry: { client: 'lib/types/client/index.js' },
+  entry: { client: 'src/client/index.tsx' },
   outDir: 'lib',
   format: 'cjs',
   platform: 'browser',
