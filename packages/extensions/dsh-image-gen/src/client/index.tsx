@@ -79,6 +79,8 @@ import { DEFAULT_COMPAT_QUALITIES, validateOfficialSize } from '../openai-output
 import { ImageProviderPill, PROVIDER_PILL_STYLE, type ProviderPillFace } from './provider-pill.js'
 import { writeSetting } from './settings-write.js'
 
+const S1API_KEY_URL = 'https://s1api.com/keys'
+
 /** Build timestamp injected by tsdown at bundle time. */
 declare const __CANVAS_BUILD_TS__: string
 
@@ -266,7 +268,8 @@ const DICT = {
     apiKeyHint: '安全保存为 {key}；页面不会读回明文。',
     s1ApiKeyManagedInModels: 'S1API 生图 Key 请在「设置 → 模型」的 Claude、Gemini 等 Key 输入框下方填写。',
     imageKeyTitle: 'S1API 生图',
-    imageKeyDescription: '生图 Key 放在这里，位于 OpenAI、Claude、Gemini Key 配置之后。',
+    imageKeyDescription: '用于 S1API 文生图和图改图；输入框位于 OpenAI、Claude、Gemini Key 配置之后。',
+    getS1ApiKey: '获取 S1API API Key',
     imageKeyPlaceholder: '留空即可保留已配置的生图 Key',
     imageKeySaved: '生图 Key 已保存。',
     keyReadOnly: 'Key 由 {source} 提供且只读；请在该来源中修改。',
@@ -437,7 +440,8 @@ const DICT = {
     apiKeyHint: 'Securely saved as {key}; never read back in plaintext.',
     s1ApiKeyManagedInModels: 'Enter the S1API image key below the Claude and Gemini key fields in Settings → Models.',
     imageKeyTitle: 'S1API image generation',
-    imageKeyDescription: 'Configure the image key here, below the OpenAI, Claude and Gemini key fields.',
+    imageKeyDescription: 'Used for S1API text-to-image and image editing; the field is below the OpenAI, Claude and Gemini key fields.',
+    getS1ApiKey: 'Get S1API API Key',
     imageKeyPlaceholder: 'Leave empty to keep the configured image key',
     imageKeySaved: 'Image key saved.',
     keyReadOnly: 'Key is supplied read-only by {source}; update it there.',
@@ -574,6 +578,8 @@ const STYLE = `
 .dsh-ig-head-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .dsh-ig-title{display:block;font-size:15px;font-weight:600;line-height:1.4;color:var(--dsw-alias-label-primary,inherit)}
 .dsh-ig-desc{display:block;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-tertiary,#7b818b)}
+.dsh-ig-link{color:var(--dsw-alias-brand-primary,#4c78ff);text-decoration:none;white-space:nowrap}
+.dsh-ig-link:hover{text-decoration:underline}
 .dsh-ig-body{padding:0}
 .dsh-ig-field{display:flex;flex-direction:column;gap:6px;padding:12px 0}
 .dsh-ig-field + .dsh-ig-field{border-top:0.5px solid var(--dsw-alias-border-l2,#e8ebf0)}
@@ -2850,7 +2856,9 @@ export function ImageGenerationModelsKeyCard(props: ModelsFooterProps): ReactNod
       <div className="dsh-ig-head">
         <span className="dsh-ig-head-text">
           <span className="dsh-ig-title">{t('imageKeyTitle')}</span>
-          <span className="dsh-ig-desc">{t('imageKeyDescription')}</span>
+          <span className="dsh-ig-desc">
+            {t('imageKeyDescription')} <a className="dsh-ig-link" href={S1API_KEY_URL} target="_blank" rel="noopener noreferrer">{t('getS1ApiKey')}</a>
+          </span>
         </span>
       </div>
       <form onSubmit={(event) => { event.preventDefault(); void save() }}>
