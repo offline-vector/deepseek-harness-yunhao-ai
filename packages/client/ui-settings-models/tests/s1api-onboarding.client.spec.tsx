@@ -65,6 +65,16 @@ it('saves only filled provider keys and does not call a model', async () => {
   expect(h.load).toHaveBeenCalledOnce()
 })
 
+it('saves the optional image key directly below the provider keys', async () => {
+  const h = harness()
+  render(<S1ApiOnboardingDialog {...h.props} />)
+  const imageKey = screen.getByLabelText('S1API image generation API key')
+  fireEvent.change(imageKey, { target: { value: 'sk-image' } })
+  fireEvent.click(screen.getByRole('button', { name: en.onboardingSave }))
+  await waitFor(() => { expect(h.complete).toHaveBeenCalledOnce() })
+  expect(h.storeCredential.mock.calls).toEqual([['DSH_IMAGE_GEN_OPENAI_COMPAT_KEY', 'sk-image']])
+})
+
 it('keeps all drafts and the dialog when a later key write fails', async () => {
   const h = harness()
   h.storeCredential.mockImplementation(async (ref) => {

@@ -250,6 +250,16 @@
     - id: api-remotes
       name: '@deepseek-ai/dsh-api-remotes'
 
+    # Built-in image generation suite. The provider defaults to the S1API
+    # OpenAI-compatible image endpoint; the key is entered through the plugin
+    # settings card and is stored by the managed credentials service.
+    - id: image-gen
+      name: '@deepseek-ai/dsh-image-gen'
+      config:
+        provider: openai-compat
+        openaiCompatBaseURL: https://s1api.com/v1
+        openaiCompatModel: gpt-image-2
+
     - id: cordis-client-runner
       name: '@deepseek-ai/dsh-cordis-client-runner'
 

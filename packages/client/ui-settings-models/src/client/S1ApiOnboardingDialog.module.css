@@ -11,6 +11,13 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+.hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
 .field {
   display: flex;
   flex-direction: column;

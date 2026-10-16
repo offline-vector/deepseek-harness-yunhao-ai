@@ -1,0 +1,2125 @@
+/**
+ * Native Workspace Gallery & Studio View Component for DSH `conversation.view` slot.
+ * Fully i18n-reactive (Chinese & English) with modular tabs, multi-dimensional filters,
+ * responsive image grid, and placeholder routes.
+ */
+import { useCallback, useEffect, useState, useMemo, useRef, type FC, type MouseEvent } from 'react'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import { IMAGE_ROUTE, DELETE_ROUTE, IMPORT_ROUTE, type ImageProvider } from '../shared.js'
+import {
+  Image as ImageIcon,
+  SlidersHorizontal,
+  Heart,
+  Search,
+  Copy,
+  Download,
+  FileText,
+  Trash2,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  CheckSquare,
+  Check,
+  AlertTriangle,
+  Sparkles,
+  Upload,
+} from 'lucide-react'
+import {
+  getGalleryItems,
+  subscribeGallery,
+  saveGalleryItem,
+  deleteGalleryItem,
+  bulkDeleteGalleryItems,
+  bulkSetFavoriteGalleryItems,
+  toggleFavoriteGalleryItem,
+  isItemInWorkspace,
+  type GalleryItem,
+} from './gallery-store.js'
+import { StudioView } from './studio-view.js'
+import { deselectStudioTlCanvases } from './tl/studio-tl-canvas.js'
+import { InspirationView } from './inspiration-view.js'
+import { evictAttachmentCache, fetchAttachmentBlob } from './image-cache.js'
+import { copyImageBlob, createZipBlob, downloadBlobUrl, type ZipFileInput } from './browser-image-utils.js'
+import { conversationRegenerateRequest } from './conversation-regenerate.js'
+import { STUDIO_ROUTE, type StudioWorkspaceInfo, type StudioGenerateResponse } from '../shared.js'
+
+/** Host-provided locale service; `active` may be missing before the locale loads. */
+export interface LocaleService {
+  getSnapshot(): { active?: string }
+  subscribe(fn: () => void): () => void
+}
+
+export type TabKey = 'gallery' | 'studio' | 'inspiration' | 'favorites'
+export type SortKey = 'newest' | 'oldest'
+
+const DICT = {
+  zh: {
+    // 顶部 Tab
+    tabGallery: '图库',
+    tabStudio: '工作台',
+    tabInspiration: '灵感',
+    tabFavorites: '收藏',
+    tabCompare: '对比',
+    tabTasks: '任务',
+
+    // 筛选工具栏
+    filterAllProviders: '全部提供商',
+    filterGoogle: 'Google Gemini',
+    filterOpenAI: 'OpenAI',
+    filterOpenAICompat: 'OpenAI 兼容',
+    filterSeedream: '字节 Seedream',
+    filterDashScope: '阿里 DashScope',
+    filterXAI: 'xAI Grok',
+    filterZhipu: '智谱 GLM',
+    filterComfyUI: '本地 ComfyUI',
+    filterImport: '导入',
+    importImages: '导入图片', importAdded: '已导入 {count} 张图片', importPartial: '导入 {count} 张，{fail} 张失败', importFailed: '导入失败', importPickHint: '选择要导入的图片（PNG/JPG/WebP/GIF）',
+    filterAllModels: '全部模型',
+    filterAllRatios: '全部比例',
+    searchPlaceholder: '搜索 Prompt、标签…',
+    filterCurrentWorkspace: '仅看此工作区',
+    filterCurrentWorkspaceHint: '只展示属于当前工作区的生图记录与物理文件',
+    sortNewest: '最新生成',
+    sortOldest: '最早生成',
+
+    // 状态与提示
+    totalCount: '共 {count} 张生成图片',
+    emptyTitle: '暂无生图记录',
+    emptyDesc: '在对话中让 Agent 生图后，生成的图片会自动收录到这里。',
+    favEmptyTitle: '暂无收藏图片',
+    favEmptyDesc: '在图库中点击卡片右下角的 ♡ 按钮，即可将喜爱的图片收录到这里。',
+    noMatchTitle: '未找到匹配结果',
+    noMatchDesc: '尝试更换搜索关键词或调整筛选条件。',
+    copiedPrompt: '已复制 Prompt',
+    copiedImage: '已复制图片',
+    copyFailed: '复制失败',
+    favoriteAdded: '已添加到收藏',
+    favoriteRemoved: '已取消收藏',
+
+    // 卡片与弹窗操作
+    preview: '查看大图',
+    download: '下载图片',
+    copyImg: '复制图片',
+    copyPpt: '复制 Prompt',
+    regenerate: '重新生成',
+    regenerateTitle: '重新生成图片',
+    regenerateHint: '可按需修改 Prompt，基于当前模型和比例在画廊生成一张新图片。',
+    confirmRegenerate: '开始生成',
+    regenerating: '正在重新生成…',
+    regenerateSuccess: '已生成新图片并收录到画廊',
+    regenerateSaveFailed: '图片已生成，但保存到图库失败，请重试',
+    regenerateFailed: '重新生成失败',
+    delete: '从画廊删除',
+    confirmDelete: '确定要从画廊中删除这张图片吗？（不会影响原聊天记录）',
+    deleted: '已从画廊删除',
+    model: '模型',
+    prompt: 'Prompt',
+    close: '关闭 (Esc)',
+    prevImage: '上一张 (←)',
+    nextImage: '下一张 (→)',
+
+    // 批量管理与操作
+    manage: '批量管理',
+    exitManage: '退出选择',
+    selectedCount: '已选 {n} 项',
+    selectAll: '全选',
+    invertSelect: '反选',
+    clearSelect: '清空',
+    batchFavorite: '批量收藏',
+    batchUnfavorite: '批量取消收藏',
+    batchFavoritedToast: '已将 {count} 张图片加入收藏',
+    batchUnfavoritedToast: '已取消 {count} 张图片的收藏',
+    batchFavoriteFailed: '收藏操作失败，请重试',
+    batchDownload: '批量下载',
+    batchDownloading: '打包中 ({current}/{total})…',
+    batchDownloadSingleToast: '已下载 1 张图片',
+    batchDownloadZipToast: '已打包下载 {count} 张图片',
+    batchDownloadFailed: '批量下载失败，请重试',
+    batchDelete: '批量删除',
+    batchDeleteTitle: '确认批量删除选中的 {count} 张图片？',
+    batchDeleteTitleSingle: '确认从画廊中删除这张图片？',
+    batchDeleteDesc: '将从画廊历史记录中移除所选图片。',
+    deleteWorkspaceFilesOpt: '同时清理工作区磁盘物理文件（不可恢复）',
+    cancel: '取消',
+    confirmBatchDelete: '确认删除 ({count})',
+    confirmDeleteSingle: '确认删除',
+    batchDeletedToast: '已删除 {count} 张图片',
+    batchDeletedWithFilesToast: '已删除 {count} 张图片，并清理了 {files} 个工作区文件',
+    deleteFailedFileLocked: '已删除 {count} 张图片，但有 {files} 个文件因被系统占用未能删除',
+    deleteFailedDatabase: '删除失败：本地数据库操作异常',
+
+    // 时间格式化
+    justNow: '刚刚',
+    minutesAgo: '{n} 分钟前',
+    hoursAgo: '{n} 小时前',
+    daysAgo: '{n} 天前',
+
+    // 预留模块占位
+    studioTitle: 'AI 图像工作台 (Studio)',
+    studioDesc: '工作台模块正在紧锣密鼓开发中。在此你将体验大图精修、变体生成 (Variations)、参数重调并一键将生成结果无缝插回 DSH 正在进行的对话。',
+    studioTip: '💡 提示：目前你可以在“图库”中点击任意图片，在弹窗中进行查看、复制与下载。',
+    compareTitle: '多模型横向对比 (Compare)',
+    compareDesc: '支持单个 Prompt 一键同时调度 Gemini、Seedream、DashScope 及本地 ComfyUI 模型并排生成，直观横评画质与细节。',
+    tasksTitle: '异步任务队列 (Tasks)',
+    tasksDesc: '集中管理后台批量生图、多模型并发生成与本地 ComfyUI 耗时任务。支持状态追踪、失败重试与执行耗时分析。',
+    comingSoonBadge: '即将推出',
+  },
+  en: {
+    // Top Tabs
+    tabGallery: 'Gallery',
+    tabStudio: 'Studio',
+    tabInspiration: 'Inspiration',
+    tabFavorites: 'Favorites',
+    tabCompare: 'Compare',
+    tabTasks: 'Tasks',
+
+    // Filter Toolbar
+    filterAllProviders: 'All Providers',
+    filterGoogle: 'Google Gemini',
+    filterOpenAI: 'OpenAI',
+    filterOpenAICompat: 'OpenAI-compatible',
+    filterSeedream: 'ByteDance Seedream',
+    filterDashScope: 'Aliyun DashScope',
+    filterXAI: 'xAI Grok',
+    filterZhipu: 'Zhipu GLM',
+    filterComfyUI: 'Local ComfyUI',
+    filterImport: 'Imported',
+    importImages: 'Import images', importAdded: 'Imported {count} images', importPartial: 'Imported {count}, {fail} failed', importFailed: 'Import failed', importPickHint: 'Choose images to import (PNG/JPG/WebP/GIF)',
+    filterAllModels: 'All Models',
+    filterAllRatios: 'All Ratios',
+    searchPlaceholder: 'Search prompt, tags…',
+    filterCurrentWorkspace: 'Current workspace only',
+    filterCurrentWorkspaceHint: 'Only show images belonging to the active workspace',
+    sortNewest: 'Newest first',
+    sortOldest: 'Oldest first',
+
+    // States & Toasts
+    totalCount: '{count} images total',
+    emptyTitle: 'No images generated yet',
+    emptyDesc: 'Images generated during conversations will automatically appear here.',
+    favEmptyTitle: 'No favorite images yet',
+    favEmptyDesc: 'Click the ♡ button on any card in the gallery to collect your favorite images here.',
+    noMatchTitle: 'No matching images',
+    noMatchDesc: 'Try a different search keyword or adjust filter criteria.',
+    copiedPrompt: 'Prompt copied',
+    copiedImage: 'Image copied',
+    copyFailed: 'Copy failed',
+    favoriteAdded: 'Added to favorites',
+    favoriteRemoved: 'Removed from favorites',
+
+    // Card & Lightbox Actions
+    preview: 'Full Preview',
+    download: 'Download',
+    copyImg: 'Copy Image',
+    copyPpt: 'Copy Prompt',
+    regenerate: 'Regenerate',
+    regenerateTitle: 'Regenerate Image',
+    regenerateHint: 'Edit prompt if needed. A new image will be generated and added to the gallery.',
+    confirmRegenerate: 'Generate',
+    regenerating: 'Regenerating…',
+    regenerateSuccess: 'New image generated and added to gallery',
+    regenerateSaveFailed: 'Image generated, but saving to the gallery failed. Please retry.',
+    regenerateFailed: 'Regeneration failed',
+    delete: 'Delete from gallery',
+    confirmDelete: 'Are you sure you want to remove this image from the gallery? (Chat history will not be affected)',
+    deleted: 'Deleted from gallery',
+    model: 'Model',
+    prompt: 'Prompt',
+    close: 'Close (Esc)',
+    prevImage: 'Previous (←)',
+    nextImage: 'Next (→)',
+
+    // Batch Management & Operations
+    manage: 'Batch Manage',
+    exitManage: 'Done',
+    selectedCount: '{n} selected',
+    selectAll: 'Select All',
+    invertSelect: 'Invert',
+    clearSelect: 'Clear',
+    batchFavorite: 'Batch Favorite',
+    batchUnfavorite: 'Batch Unfavorite',
+    batchFavoritedToast: 'Added {count} images to favorites',
+    batchUnfavoritedToast: 'Removed {count} images from favorites',
+    batchFavoriteFailed: 'Favorite operation failed, please retry',
+    batchDownload: 'Batch Download',
+    batchDownloading: 'Packaging ({current}/{total})…',
+    batchDownloadSingleToast: 'Downloaded 1 image',
+    batchDownloadZipToast: 'Packaged & downloaded {count} images',
+    batchDownloadFailed: 'Batch download failed, please retry',
+    batchDelete: 'Batch Delete',
+    batchDeleteTitle: 'Delete {count} selected images?',
+    batchDeleteTitleSingle: 'Delete this image from gallery?',
+    batchDeleteDesc: 'These images will be removed from your gallery history.',
+    deleteWorkspaceFilesOpt: 'Also delete files from workspace disk (cannot be undone)',
+    cancel: 'Cancel',
+    confirmBatchDelete: 'Delete ({count})',
+    confirmDeleteSingle: 'Delete',
+    batchDeletedToast: 'Deleted {count} images',
+    batchDeletedWithFilesToast: 'Deleted {count} images and cleaned {files} workspace files',
+    deleteFailedFileLocked: 'Deleted {count} images, but {files} files could not be deleted (busy/locked)',
+    deleteFailedDatabase: 'Failed to delete: local database error',
+
+    // Relative Time
+    justNow: 'Just now',
+    minutesAgo: '{n}m ago',
+    hoursAgo: '{n}h ago',
+    daysAgo: '{n}d ago',
+
+    // Route Placeholders
+    studioTitle: 'AI Image Studio',
+    studioDesc: 'Studio workbench is under active development. Fine-tune prompts, generate variations (2x/4x), and inject images directly into DSH chat.',
+    studioTip: '💡 Tip: You can currently click any image in the Gallery to preview, copy, or download it.',
+    compareTitle: 'Model Comparison (Compare)',
+    compareDesc: 'Side-by-side multi-model benchmarking coming soon. Test Gemini, Seedream, DashScope, and ComfyUI with a single prompt.',
+    tasksTitle: 'Task Queue (Tasks)',
+    tasksDesc: 'Centralized view for batch generation, asynchronous ComfyUI runs, live progress tracking, and retry controls.',
+    comingSoonBadge: 'Coming Soon',
+  },
+} as const
+
+export type DictKey = keyof typeof DICT.zh
+
+/** Format human-readable relative time */
+/** Read a browser-picked file as base64 payload for the import route. */
+function readFileBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') resolve(result.slice(result.indexOf(',') + 1))
+      else reject(new Error('read-failed'))
+    }
+    reader.onerror = () => reject(new Error('read-failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function formatRelativeTime(
+  timestamp: number,
+  t: (key: DictKey, params?: Record<string, string>) => string,
+): string {
+  const diff = Date.now() - timestamp
+  if (diff < 60_000) {
+    return t('justNow')
+  }
+  if (diff < 3600_000) {
+    const mins = Math.max(1, Math.floor(diff / 60_000))
+    return t('minutesAgo', { n: String(mins) })
+  }
+  if (diff < 86400_000) {
+    const hours = Math.floor(diff / 3600_000)
+    return t('hoursAgo', { n: String(hours) })
+  }
+  if (diff < 30 * 86400_000) {
+    const days = Math.floor(diff / 86400_000)
+    return t('daysAgo', { n: String(days) })
+  }
+  const d = new Date(timestamp)
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
+}
+
+/** Extract standard aspect ratio for precise filtering */
+function getItemRatio(item: GalleryItem): string {
+  // Codex subscription may ignore its requested ratio. Filter these cards by
+  // the saved image's dimensions instead of the Studio selection.
+  if (item.provider === 'chatgpt-sub' && item.attachment.width && item.attachment.height) {
+    const actual = item.attachment.width / item.attachment.height
+    for (const [label, value] of [
+      ['1:1', 1], ['16:9', 16 / 9], ['9:16', 9 / 16],
+      ['4:3', 4 / 3], ['3:4', 3 / 4], ['3:2', 3 / 2], ['2:3', 2 / 3],
+    ] as const) {
+      if (Math.abs(actual / value - 1) < 0.08) return label
+    }
+    return 'custom'
+  }
+  if (item.aspectRatio && item.aspectRatio !== 'custom') {
+    return item.aspectRatio
+  }
+  if (item.output) {
+    const ratioMatch = item.output.match(/\b(1:1|16:9|9:16|4:3|3:4|3:2|2:3)\b/)
+    if (ratioMatch?.[1]) return ratioMatch[1]
+
+    const dimMatch = item.output.match(/(\d{3,4})\s*[×x*]\s*(\d{3,4})/)
+    if (dimMatch?.[1] && dimMatch[2]) {
+      const w = parseInt(dimMatch[1], 10)
+      const h = parseInt(dimMatch[2], 10)
+      if (w === h) return '1:1'
+      const approx = w / h
+      if (Math.abs(approx - 16 / 9) < 0.05) return '16:9'
+      if (Math.abs(approx - 9 / 16) < 0.05) return '9:16'
+      if (Math.abs(approx - 4 / 3) < 0.05) return '4:3'
+      if (Math.abs(approx - 3 / 4) < 0.05) return '3:4'
+      if (Math.abs(approx - 3 / 2) < 0.05) return '3:2'
+      if (Math.abs(approx - 2 / 3) < 0.05) return '2:3'
+    }
+  }
+  return '1:1'
+}
+
+/** Format aspect ratio or dimensions for card metadata (e.g., 1024×1024 or 16:9) */
+function formatCardMeta(item: GalleryItem): string {
+  if (item.output) {
+    const dimMatch = item.output.match(/(\d{3,4})\s*[×x*]\s*(\d{3,4})/)
+    if (dimMatch?.[1] && dimMatch[2]) {
+      return `${dimMatch[1]}×${dimMatch[2]}`
+    }
+  }
+  if (item.aspectRatio && item.aspectRatio !== 'custom') {
+    return item.aspectRatio
+  }
+  if (item.output) {
+    const ratioMatch = item.output.match(/\b(1:1|16:9|9:16|4:3|3:4|3:2|2:3)\b/)
+    if (ratioMatch?.[1]) return ratioMatch[1]
+  }
+  if (item.imageSize) {
+    return item.imageSize
+  }
+  return '1:1'
+}
+
+export interface GalleryViewTabProps {
+  locale?: LocaleService | undefined
+  sessionId?: string
+  useSession?: (selector: (state: any) => any) => any
+  useSessions?: (selector: (state: any) => any) => any
+  useWorkspaces?: (selector: (state: any) => any) => any
+  /** Host credential-change notifier; forwarded to the studio workbench. */
+  credentialEvents?: { listen(callback: () => void): () => void } | undefined
+  /**
+   * Right-sidebar variant (DSH official `sidebar.right.pane.tab` seat). The
+   * native conversation stays in the main area, so the composer must NOT be
+   * hidden and the page-level CSS must not scope to the conversation column.
+   */
+  inSidebar?: boolean
+  /** Sub-tab opened first; the sidebar variant starts on the studio workbench. */
+  defaultTab?: TabKey
+  /** Canvas surface the studio opens with; the sidebar variant shows the tldraw infinite canvas directly. */
+  initialCanvasSurface?: 'preview' | 'infinite'
+  /**
+   * Sidebar tab visibility reader injected by DSH's `sidebar.right.pane.tab`
+   * seat (absent on hosts that mount this view elsewhere, e.g. the main-area
+   * conversation tab, where the hook is optional).
+   */
+  useTabInfo?: (() => { tab?: { visible?: boolean } }) | undefined
+}
+
+export const GalleryViewTab: FC<GalleryViewTabProps> = (props) => {
+  const { locale, sessionId, useSessions, useWorkspaces, credentialEvents, inSidebar, defaultTab, initialCanvasSurface, useTabInfo } = props
+  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab ?? 'gallery')
+  const [studioDraft, setStudioDraft] = useState<string | undefined>(undefined)
+  const [studioReference, setStudioReference] = useState<File | undefined>(undefined)
+  const [items, setItems] = useState<GalleryItem[]>([])
+  const [search, setSearch] = useState('')
+  const [selectedProvider, setSelectedProvider] = useState<string>('all')
+  const [selectedRatio, setSelectedRatio] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<SortKey>('newest')
+  const [onlyCurrentWorkspace, setOnlyCurrentWorkspace] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem('dsh-ig-only-current-workspace')
+      return stored === null ? true : stored === 'true'
+    } catch {
+      return true
+    }
+  })
+  const [serverWorkspaces, setServerWorkspaces] = useState<StudioWorkspaceInfo[]>([])
+  const [serverActiveRoot, setServerActiveRoot] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dsh-ig-only-current-workspace', String(onlyCurrentWorkspace))
+    } catch {}
+  }, [onlyCurrentWorkspace])
+
+  // Canvas selection is interaction state tied to this surface: leaving the
+  // studio page cancels it so a stale selection can neither resurface on
+  // return nor linger in the host mirror. Only fires on hosts that inject the
+  // sidebar tab hook; the main-area conversation tab passes none.
+  const tabVisible = useTabInfo?.().tab?.visible
+  useEffect(() => {
+    if (tabVisible === false) deselectStudioTlCanvases()
+  }, [tabVisible])
+
+  useEffect(() => {
+    let mounted = true
+    fetch(STUDIO_ROUTE)
+      .then(res => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!mounted || !data) return
+        if (Array.isArray(data.workspaces)) setServerWorkspaces(data.workspaces)
+        if (typeof data.workspaceRoot === 'string') setServerActiveRoot(data.workspaceRoot)
+      })
+      .catch(() => {})
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const liveWorkspaces = useWorkspaces ? useWorkspaces((s: any) => s?.items) : null
+  const liveSessions = useSessions ? useSessions((s: any) => s) : null
+  const currentSessionId = sessionId || liveSessions?.current
+
+  const activeWorkspace = useMemo(() => {
+    const allWs: Array<{
+      workspaceId?: string
+      path?: string
+      title?: string
+      sessionIds?: readonly string[]
+    }> =
+      Array.isArray(liveWorkspaces) && liveWorkspaces.length > 0
+        ? liveWorkspaces
+        : serverWorkspaces
+
+    if (allWs.length > 0) {
+      if (currentSessionId) {
+        const matched = allWs.find(
+          ws => Array.isArray(ws.sessionIds) && ws.sessionIds.includes(currentSessionId),
+        )
+        if (matched) return matched
+      }
+      if (serverActiveRoot) {
+        const normActive = serverActiveRoot.replace(/\\/g, '/').toLowerCase()
+        const matched = allWs.find(
+          ws => ws.path && ws.path.replace(/\\/g, '/').toLowerCase() === normActive,
+        )
+        if (matched) return matched
+      }
+      return allWs[0]
+    }
+    if (serverActiveRoot) {
+      return { workspaceId: 'default', path: serverActiveRoot, title: 'Workspace', sessionIds: [] }
+    }
+    return null
+  }, [liveWorkspaces, serverWorkspaces, currentSessionId, serverActiveRoot])
+
+  const [previewItem, setPreviewItem] = useState<GalleryItem | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const previewUrlRef = useRef<string | null>(null)
+  previewUrlRef.current = previewUrl
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  // In-Gallery Regenerate State
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false)
+  const [regeneratePrompt, setRegeneratePrompt] = useState('')
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const regenerateControllerRef = useRef<AbortController | null>(null)
+
+  // Batch Management & Shift-Selection State
+  const [isManageMode, setIsManageMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const lastSelectedIndexRef = useRef<number | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteWorkspaceFiles, setDeleteWorkspaceFiles] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Clear batch selection and shift anchor when switching tabs, searching, or changing filters
+  useEffect(() => {
+    setSelectedIds(new Set())
+    lastSelectedIndexRef.current = null
+  }, [activeTab, search, selectedProvider, selectedRatio, sortBy, onlyCurrentWorkspace])
+
+  const [lang, setLang] = useState<'zh' | 'en'>(() => {
+    const active = locale?.getSnapshot?.()?.active
+    return active?.startsWith('en') ? 'en' : 'zh'
+  })
+
+  useEffect(() => {
+    if (!locale?.subscribe) return
+    return locale.subscribe(() => {
+      const active = locale.getSnapshot?.()?.active
+      setLang(active?.startsWith('en') ? 'en' : 'zh')
+    })
+  }, [locale])
+
+  const dict = lang === 'en' ? DICT.en : DICT.zh
+  const t = (key: DictKey, params?: Record<string, string>): string => {
+    let text: string = dict[key] || DICT.zh[key] || key
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        text = text.replace(`{${k}}`, v)
+      }
+    }
+    return text
+  }
+
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => {
+      setToast(null)
+    }, 2000)
+  }
+
+  const [importing, setImporting] = useState(false)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
+
+  const importImages = async (files: FileList | null): Promise<void> => {
+    if (files === null || files.length === 0 || importing) return
+    const all = Array.from(files)
+    const picked = all.filter(file => file.type.startsWith('image/')).slice(0, 8)
+    if (picked.length === 0) {
+      showToast(t('importFailed'))
+      return
+    }
+    setImporting(true)
+    try {
+      const reads = await Promise.allSettled(picked.map(file => readFileBase64(file)))
+      const images = reads.flatMap((read, index) => {
+        if (read.status !== 'fulfilled') return []
+        const file = picked[index]!
+        return [{ data: read.value, mediaType: file.type, ...(file.name.length > 0 ? { name: file.name } : {}) }]
+      })
+      const readFailures = reads.length - images.length
+      if (images.length === 0) {
+        showToast(t('importFailed'))
+        return
+      }
+      const response = await fetch(IMPORT_ROUTE, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ images }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${String(response.status)}`)
+      const payload = await response.json() as { images?: { attachment: ImageAttachmentRef }[]; failures?: unknown[] }
+      const imported = payload.images ?? []
+      let added = 0
+      let writeFailures = 0
+      for (const entry of imported) {
+        // The attachment id is content-addressed, so re-importing bytes that
+        // already exist must not overwrite or alias the original gallery entry.
+        const persisted = await saveGalleryItem({
+          id: `import-${entry.attachment.attachmentId}-${crypto.randomUUID()}`,
+          attachment: entry.attachment,
+          prompt: '',
+          provider: 'import',
+          model: '',
+          createdAt: Date.now(),
+          ...(activeWorkspace?.workspaceId ? { workspaceId: activeWorkspace.workspaceId } : {}),
+          ...(activeWorkspace?.path ? { workspacePath: activeWorkspace.path } : {}),
+          ...(currentSessionId ? { sessionId: currentSessionId } : {}),
+        })
+        if (persisted) added += 1
+        else writeFailures += 1
+      }
+      const failCount = (payload.failures ?? []).length + (all.length - picked.length) + readFailures + writeFailures
+      if (added === 0) showToast(t('importFailed'))
+      else if (failCount > 0) showToast(t('importPartial', { count: String(added), fail: String(failCount) }))
+      else showToast(t('importAdded', { count: String(added) }))
+    } catch {
+      showToast(t('importFailed'))
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const useInspirationPrompt = useCallback((prompt: string) => {
+    setStudioDraft(prompt)
+    setActiveTab('studio')
+  }, [])
+
+  const useInspirationReference = useCallback((file: File, prompt: string) => {
+    setStudioDraft(prompt)
+    setStudioReference(file)
+    setActiveTab('studio')
+  }, [])
+
+  const clearStudioDraft = useCallback(() => setStudioDraft(undefined), [])
+  const clearStudioReference = useCallback(() => setStudioReference(undefined), [])
+
+  // Hide chat input composer while browsing gallery/studio. Only in the
+  // conversation-view variant: the sidebar variant shares the screen with the
+  // native conversation, whose composer is the whole point of the split.
+  useEffect(() => {
+    if (inSidebar) return undefined
+    const seat = document.querySelector('[data-composer-seat]') as HTMLElement | null
+    if (seat) {
+      const prevDisplay = seat.style.display
+      seat.style.display = 'none'
+      return () => {
+        seat.style.display = prevDisplay
+      }
+    }
+    return undefined
+  }, [inSidebar])
+
+  // Load items from IndexedDB
+  useEffect(() => {
+    let active = true
+    const load = () => {
+      void getGalleryItems().then((res) => {
+        if (active) setItems(res)
+      })
+    }
+    load()
+    const unsubscribe = subscribeGallery(load)
+    return () => {
+      active = false
+      unsubscribe()
+    }
+  }, [])
+
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const blobCache = useMemo(() => new Map<string, Blob>(), [])
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Multi-dimensional filtering and sorting (Provider, Ratio, Search, and Sort)
+  const filteredItems = useMemo(() => {
+    return items
+      .filter((item) => {
+        // Tab-level filter (Favorites tab only shows favorited items)
+        if (activeTab === 'favorites' && !item.isFavorite) {
+          return false
+        }
+        // Provider filter
+        if (selectedProvider !== 'all' && item.provider !== selectedProvider) {
+          return false
+        }
+        // Ratio filter
+        if (selectedRatio !== 'all') {
+          const ratio = getItemRatio(item)
+          if (ratio !== selectedRatio) {
+            return false
+          }
+        }
+        // Search filter (Prompt, model, tags, provider)
+        if (search.trim().length > 0) {
+          const q = search.trim().toLowerCase()
+          const matchPrompt = item.prompt?.toLowerCase().includes(q)
+          const matchModel = item.model?.toLowerCase().includes(q)
+          const matchProvider = item.provider?.toLowerCase().includes(q)
+          const matchTags = item.tags?.some(t => t.toLowerCase().includes(q))
+          if (!matchPrompt && !matchModel && !matchProvider && !matchTags) {
+            return false
+          }
+        }
+        // Workspace filter
+        if (onlyCurrentWorkspace && activeWorkspace) {
+          if (!isItemInWorkspace(item, activeWorkspace)) {
+            return false
+          }
+        }
+        return true
+      })
+      .sort((a, b) => {
+        if (sortBy === 'oldest') {
+          return a.createdAt - b.createdAt
+        }
+        return b.createdAt - a.createdAt
+      })
+  }, [items, activeTab, selectedProvider, selectedRatio, search, sortBy, onlyCurrentWorkspace, activeWorkspace])
+
+  // Count of items belonging to the current workspace (before other search/filter criteria)
+  const workspaceItemsCount = useMemo(() => {
+    if (!activeWorkspace) return items.length
+    return items.filter(item => isItemInWorkspace(item, activeWorkspace)).length
+  }, [items, activeWorkspace])
+
+  // Current item index in the active filtered sequence
+  const currentPreviewIndex = useMemo(() => {
+    if (!previewItem) return -1
+    return filteredItems.findIndex(i => i.id === previewItem.id)
+  }, [previewItem, filteredItems])
+
+  const hasPrev = currentPreviewIndex > 0
+  const hasNext = currentPreviewIndex >= 0 && currentPreviewIndex < filteredItems.length - 1
+
+  // Safely open or navigate preview item
+  const openPreviewItem = (item: GalleryItem, blob?: Blob) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = null
+    }
+    setPreviewItem(item)
+
+    if (blob) {
+      blobCache.set(item.id, blob)
+      const url = URL.createObjectURL(blob)
+      previewUrlRef.current = url
+      setPreviewBlob(blob)
+      setPreviewUrl(url)
+      setPreviewLoading(false)
+      return
+    }
+
+    const cached = blobCache.get(item.id)
+    if (cached) {
+      const url = URL.createObjectURL(cached)
+      previewUrlRef.current = url
+      setPreviewBlob(cached)
+      setPreviewUrl(url)
+      setPreviewLoading(false)
+      return
+    }
+
+    setPreviewLoading(true)
+    setPreviewBlob(null)
+    setPreviewUrl(null)
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
+    fetchAttachmentBlob(item.attachment)
+      .then((fetchedBlob) => {
+        if (controller.signal.aborted) return
+        blobCache.set(item.id, fetchedBlob)
+        const url = URL.createObjectURL(fetchedBlob)
+        previewUrlRef.current = url
+        setPreviewBlob(fetchedBlob)
+        setPreviewUrl(url)
+        setPreviewLoading(false)
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return
+        setPreviewLoading(false)
+        showToast(t('copyFailed'))
+      })
+  }
+
+  // Close preview and revoke object URL
+  const handleClosePreview = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    if (regenerateControllerRef.current) {
+      regenerateControllerRef.current.abort()
+      regenerateControllerRef.current = null
+      setIsRegenerating(false)
+    }
+    setShowRegenerateModal(false)
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current)
+      previewUrlRef.current = null
+    }
+    setPreviewItem(null)
+    setPreviewUrl(null)
+    setPreviewBlob(null)
+    setPreviewLoading(false)
+  }
+
+  const goToPrev = () => {
+    if (currentPreviewIndex > 0) {
+      const prevItem = filteredItems[currentPreviewIndex - 1]
+      if (prevItem) openPreviewItem(prevItem)
+    }
+  }
+
+  const goToNext = () => {
+    if (currentPreviewIndex >= 0 && currentPreviewIndex < filteredItems.length - 1) {
+      const nextItem = filteredItems[currentPreviewIndex + 1]
+      if (nextItem) openPreviewItem(nextItem)
+    }
+  }
+
+  const handleOpenRegenerate = () => {
+    if (!previewItem || isRegenerating) return
+    setRegeneratePrompt(previewItem.prompt)
+    setShowRegenerateModal(true)
+  }
+
+  const handleCancelRegeneratePrompt = () => {
+    setShowRegenerateModal(false)
+  }
+
+  const handleAbortRegenerating = () => {
+    regenerateControllerRef.current?.abort()
+    regenerateControllerRef.current = null
+    setIsRegenerating(false)
+    showToast(t('cancel'))
+  }
+
+  const handleConfirmRegenerate = async () => {
+    if (!previewItem || isRegenerating || regeneratePrompt.trim().length === 0) return
+    setShowRegenerateModal(false)
+    setIsRegenerating(true)
+
+    const controller = new AbortController()
+    regenerateControllerRef.current = controller
+
+    try {
+      const request = conversationRegenerateRequest(
+        previewItem,
+        regeneratePrompt,
+        previewItem.aspectRatio
+          ? { ratio: previewItem.aspectRatio, quality: previewItem.imageSize || 'standard', resolution: previewItem.resolution, generationQuality: previewItem.generationQuality, watermark: previewItem.watermark }
+          : undefined,
+      )
+      if (activeWorkspace?.path) {
+        request.workspaceRoot = activeWorkspace.path
+      }
+
+      const response = await fetch(STUDIO_ROUTE, {
+        method: 'POST',
+        credentials: 'same-origin',
+        signal: controller.signal,
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+      })
+
+      const payload = (await response.json().catch(() => null)) as
+        | StudioGenerateResponse
+        | { error?: string }
+        | null
+
+      if (!response.ok || payload === null || !('attachment' in payload)) {
+        throw new Error(
+          payload && 'error' in payload && payload.error ? payload.error : t('regenerateFailed'),
+        )
+      }
+
+      const newItem: GalleryItem = {
+        id: String(payload.attachment.attachmentId),
+        attachment: payload.attachment,
+        prompt: payload.prompt,
+        provider: payload.provider,
+        model: payload.model,
+        createdAt: payload.createdAt,
+        aspectRatio: request.ratio,
+        imageSize: request.quality,
+        resolution: request.resolution,
+        generationQuality: request.generationQuality,
+        watermark: request.watermark,
+        output: payload.output,
+        ...(payload.savedTo ? { savedTo: payload.savedTo } : {}),
+        ...(activeWorkspace?.path ? { workspacePath: activeWorkspace.path } : {}),
+        ...(activeWorkspace?.workspaceId ? { workspaceId: activeWorkspace.workspaceId } : {}),
+        ...(currentSessionId ? { sessionId: currentSessionId } : {}),
+      }
+
+      const savedOk = await saveGalleryItem(newItem)
+
+      if (activeTab !== 'gallery') {
+        setActiveTab('gallery')
+      }
+      if (search.trim().length > 0) {
+        setSearch('')
+      }
+
+      // Smoothly update preview to the newly created item and load its image blob
+      openPreviewItem(newItem)
+      showToast(savedOk ? t('regenerateSuccess') : t('regenerateSaveFailed'))
+    } catch (err) {
+      if (controller.signal.aborted) return
+      showToast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsRegenerating(false)
+      regenerateControllerRef.current = null
+    }
+  }
+
+  // Clean up only on component unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) abortControllerRef.current.abort()
+      if (regenerateControllerRef.current) regenerateControllerRef.current.abort()
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current)
+    }
+  }, [])
+
+  // Keyboard navigation: Esc (close modal or preview), ArrowLeft (prev), ArrowRight (next)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return
+      }
+      if (showRegenerateModal) {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          setShowRegenerateModal(false)
+        }
+        return
+      }
+      if (showDeleteModal) {
+        if (e.key === 'Escape' && !isDeleting) {
+          e.preventDefault()
+          setShowDeleteModal(false)
+          if (!isManageMode) setSelectedIds(new Set())
+        }
+        return
+      }
+      if (previewItem) {
+        if (e.key === 'Escape') {
+          handleClosePreview()
+        } else if (e.key === 'ArrowLeft' || e.key === 'Left') {
+          e.preventDefault()
+          goToPrev()
+        } else if (e.key === 'ArrowRight' || e.key === 'Right') {
+          e.preventDefault()
+          goToNext()
+        }
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showRegenerateModal, showDeleteModal, isDeleting, isManageMode, previewItem, currentPreviewIndex, filteredItems])
+
+  // Shift-Click Range Selection & Card Click Handler
+  const handleCardClick = (item: GalleryItem, index: number, e: MouseEvent, blob?: Blob) => {
+    // If holding Shift, or if currently in manage mode:
+    if (e.shiftKey || isManageMode) {
+      e.stopPropagation()
+      if (!isManageMode) {
+        setIsManageMode(true)
+      }
+
+      if (e.shiftKey && lastSelectedIndexRef.current !== null) {
+        const from = Math.min(lastSelectedIndexRef.current, index)
+        const to = Math.max(lastSelectedIndexRef.current, index)
+        const rangeItems = filteredItems.slice(from, to + 1)
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          for (const r of rangeItems) {
+            next.add(r.id)
+          }
+          return next
+        })
+      } else {
+        setSelectedIds((prev) => {
+          const next = new Set(prev)
+          if (next.has(item.id)) {
+            next.delete(item.id)
+          } else {
+            next.add(item.id)
+          }
+          return next
+        })
+        lastSelectedIndexRef.current = index
+      }
+      return
+    }
+
+    // Normal click -> open preview
+    if (blob) {
+      openPreviewItem(item, blob)
+    }
+  }
+
+  // Toggle selection for a specific card index
+  const handleToggleSelect = (id: string, index: number, e: MouseEvent) => {
+    e.stopPropagation()
+    if (!isManageMode) {
+      setIsManageMode(true)
+    }
+
+    if (e.shiftKey && lastSelectedIndexRef.current !== null) {
+      const from = Math.min(lastSelectedIndexRef.current, index)
+      const to = Math.max(lastSelectedIndexRef.current, index)
+      const rangeItems = filteredItems.slice(from, to + 1)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (const r of rangeItems) {
+          next.add(r.id)
+        }
+        return next
+      })
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+        }
+        return next
+      })
+      lastSelectedIndexRef.current = index
+    }
+  }
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filteredItems.map(i => i.id)))
+  }
+
+  const handleInvertSelect = () => {
+    setSelectedIds((prev) => {
+      const next = new Set<string>()
+      for (const item of filteredItems) {
+        if (!prev.has(item.id)) {
+          next.add(item.id)
+        }
+      }
+      return next
+    })
+  }
+
+  const handleClearSelect = () => {
+    setSelectedIds(new Set())
+    lastSelectedIndexRef.current = null
+  }
+
+  const handleExitManage = () => {
+    setIsManageMode(false)
+    setSelectedIds(new Set())
+    lastSelectedIndexRef.current = null
+  }
+
+  // Selected items array
+  const selectedItems = useMemo(() => {
+    if (selectedIds.size === 0) return []
+    return items.filter(item => selectedIds.has(item.id))
+  }, [items, selectedIds])
+
+  // Whether all selected items are currently favorited
+  const allSelectedAreFavorites = useMemo(() => {
+    if (selectedItems.length === 0) return false
+    return selectedItems.every(item => Boolean(item.isFavorite))
+  }, [selectedItems])
+
+  // Batch favorite toggle handler (Optimistic UI + atomic IndexedDB transaction)
+  const handleBatchToggleFavorite = async () => {
+    if (selectedIds.size === 0) return
+    const targetFavorite = !allSelectedAreFavorites
+    const targetIds = Array.from(selectedIds)
+
+    // 1. Optimistic UI update
+    setItems(prev =>
+      prev.map(item => (selectedIds.has(item.id) ? { ...item, isFavorite: targetFavorite } : item)),
+    )
+
+    // 2. Persist in IndexedDB in one transaction
+    try {
+      await bulkSetFavoriteGalleryItems(targetIds, targetFavorite)
+      showToast(
+        targetFavorite
+          ? t('batchFavoritedToast', { count: String(targetIds.length) })
+          : t('batchUnfavoritedToast', { count: String(targetIds.length) }),
+      )
+    } catch (err) {
+      console.error('[dsh-image-gen] Batch favorite failed:', err)
+      void getGalleryItems().then(res => setItems(res))
+      showToast(t('batchFavoriteFailed'))
+    }
+  }
+
+  // Batch download state
+  const [isDownloadingBatch, setIsDownloadingBatch] = useState(false)
+  const [batchDownloadProgress, setBatchDownloadProgress] = useState<string | null>(null)
+
+  // Batch download handler (single PNG or bundled zero-compression ZIP)
+  const handleBatchDownload = async () => {
+    if (selectedIds.size === 0 || isDownloadingBatch) return
+    const itemsToDownload = selectedItems
+    if (itemsToDownload.length === 0) return
+
+    setIsDownloadingBatch(true)
+
+    try {
+      // Single image: direct download
+      if (itemsToDownload.length === 1) {
+        const single = itemsToDownload[0]
+        if (!single) return
+        let blob = blobCache.get(single.id)
+        if (!blob) {
+          blob = await fetchAttachmentBlob(single.attachment)
+          blobCache.set(single.id, blob)
+        }
+        const objectUrl = URL.createObjectURL(blob)
+        downloadBlobUrl(objectUrl, `dsh-${single.provider}-${single.id}.png`)
+        URL.revokeObjectURL(objectUrl)
+        showToast(t('batchDownloadSingleToast'))
+        return
+      }
+
+      // Multiple images: bundle into ZIP without multi-file browser download blocks
+      const zipFiles: ZipFileInput[] = []
+      const usedNames = new Set<string>()
+
+      for (let i = 0; i < itemsToDownload.length; i++) {
+        const it = itemsToDownload[i]
+        if (!it) continue
+        setBatchDownloadProgress(`${i + 1}/${itemsToDownload.length}`)
+
+        let blob = blobCache.get(it.id)
+        if (!blob) {
+          blob = await fetchAttachmentBlob(it.attachment)
+          blobCache.set(it.id, blob)
+        }
+
+        const arrayBuffer = await blob.arrayBuffer()
+        const ext = blob.type === 'image/jpeg' ? 'jpg' : blob.type === 'image/webp' ? 'webp' : 'png'
+        let baseName = `dsh-${it.provider}-${it.id.slice(0, 8)}.${ext}`
+        let count = 1
+        while (usedNames.has(baseName)) {
+          baseName = `dsh-${it.provider}-${it.id.slice(0, 8)}-${count}.${ext}`
+          count++
+        }
+        usedNames.add(baseName)
+
+        zipFiles.push({
+          name: baseName,
+          data: new Uint8Array(arrayBuffer),
+        })
+      }
+
+      const zipBlob = createZipBlob(zipFiles)
+      const zipUrl = URL.createObjectURL(zipBlob)
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+      downloadBlobUrl(zipUrl, `dsh-gallery-${dateStr}.zip`)
+      URL.revokeObjectURL(zipUrl)
+
+      showToast(t('batchDownloadZipToast', { count: String(itemsToDownload.length) }))
+    } catch (err) {
+      console.error('[dsh-image-gen] Batch download failed:', err)
+      showToast(t('batchDownloadFailed'))
+    } finally {
+      setIsDownloadingBatch(false)
+      setBatchDownloadProgress(null)
+    }
+  }
+
+  // Request single image deletion through the unified modal
+  const requestSingleDelete = (item: GalleryItem, e?: MouseEvent) => {
+    if (e) e.stopPropagation()
+    setSelectedIds(new Set([item.id]))
+    setShowDeleteModal(true)
+  }
+
+  const hasWorkspaceFilesToDelete = useMemo(
+    () => items.some(i => selectedIds.has(i.id) && typeof i.savedTo === 'string' && i.savedTo.trim().length > 0),
+    [items, selectedIds],
+  )
+
+  // Execute batch deletion (IndexedDB single transaction + optional workspace disk unlink)
+  const handleConfirmBatchDelete = async () => {
+    if (selectedIds.size === 0 || isDeleting) return
+    setIsDeleting(true)
+
+    const idsToDelete = Array.from(selectedIds)
+    const itemsToDelete = items.filter(i => selectedIds.has(i.id))
+
+    // 1. Collect exact workspace file paths
+    const pathsToDelete = itemsToDelete
+      .map(i => i.savedTo)
+      .filter((p): p is string => typeof p === 'string' && p.trim().length > 0)
+
+    let deletedFiles = 0
+
+    if (deleteWorkspaceFiles && pathsToDelete.length > 0) {
+      try {
+        const res = await fetch(DELETE_ROUTE, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            paths: pathsToDelete,
+          }),
+        })
+        if (!res.ok) {
+          setIsDeleting(false)
+          showToast(`工作区文件删除失败 (${res.status})`)
+          return
+        }
+        const data = (await res.json().catch(() => null)) as {
+          ok?: boolean
+          deletedCount?: number
+          failedFiles?: { path: string; error: string }[]
+        } | null
+        if (!data || data.ok === false || (Array.isArray(data.failedFiles) && data.failedFiles.length > 0)) {
+          setIsDeleting(false)
+          const reason = data?.failedFiles?.[0]?.error || '工作区文件未能删除'
+          showToast(`删除失败：${reason}`)
+          return
+        }
+        deletedFiles = data.deletedCount ?? 0
+      } catch (err) {
+        setIsDeleting(false)
+        showToast(err instanceof Error ? err.message : '工作区文件删除网络异常')
+        return
+      }
+    }
+
+    // 2. Perform IndexedDB deletion with real error handling
+    try {
+      await bulkDeleteGalleryItems(idsToDelete)
+      for (const item of itemsToDelete) {
+        evictAttachmentCache(item.attachment.attachmentId)
+      }
+    } catch (err) {
+      setIsDeleting(false)
+      showToast(t('deleteFailedDatabase'))
+      return
+    }
+
+    // Close lightbox if preview item was deleted
+    if (previewItem && selectedIds.has(previewItem.id)) {
+      handleClosePreview()
+    }
+
+    setIsDeleting(false)
+    setShowDeleteModal(false)
+    if (isManageMode) {
+      handleExitManage()
+    } else {
+      setSelectedIds(new Set())
+      lastSelectedIndexRef.current = null
+    }
+
+    if (deletedFiles > 0) {
+      showToast(t('batchDeletedWithFilesToast', { count: String(idsToDelete.length), files: String(deletedFiles) }))
+    } else {
+      showToast(t('batchDeletedToast', { count: String(idsToDelete.length) }))
+    }
+  }
+
+  return (
+    <div className={`dsh-ig-gallery-page${inSidebar ? ' dsh-ig-page-in-sidebar' : ''}`} data-conversation-composer-overlay="">
+      {/* 1. Top Navigation Tabs */}
+      <header className="dsh-ig-studio-tabs-bar">
+        <button
+          type="button"
+          className={`dsh-ig-studio-tab-btn ${activeTab === 'gallery' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('gallery')}
+        >
+          <ImageIcon size={15} />
+          <span>{t('tabGallery')}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`dsh-ig-studio-tab-btn ${activeTab === 'studio' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('studio')}
+        >
+          <SlidersHorizontal size={15} />
+          <span>{t('tabStudio')}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`dsh-ig-studio-tab-btn ${activeTab === 'inspiration' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('inspiration')}
+        >
+          <Sparkles size={15} />
+          <span>{t('tabInspiration')}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`dsh-ig-studio-tab-btn ${activeTab === 'favorites' ? 'is-active' : ''}`}
+          onClick={() => setActiveTab('favorites')}
+        >
+          <Heart size={15} />
+          <span>{t('tabFavorites')}</span>
+        </button>
+      </header>
+
+      {/* 2. Secondary Filter & Search Toolbar (Displayed on Gallery & Favorites) */}
+      {(activeTab === 'gallery' || activeTab === 'favorites') && (
+        <div className="dsh-ig-studio-toolbar">
+          <div className="dsh-ig-studio-toolbar-left">
+            {/* Provider Filter */}
+            <select
+              className="dsh-ig-studio-select"
+              value={selectedProvider}
+              onChange={e => setSelectedProvider(e.target.value)}
+            >
+              <option value="all">{t('filterAllProviders')}</option>
+              <option value="google">{t('filterGoogle')}</option>
+              <option value="openai">{t('filterOpenAI')}</option>
+              <option value="openai-compat">{t('filterOpenAICompat')}</option>
+              <option value="seedream">{t('filterSeedream')}</option>
+              <option value="dashscope">{t('filterDashScope')}</option>
+              <option value="xai">{t('filterXAI')}</option>
+              <option value="zhipu">{t('filterZhipu')}</option>
+              <option value="comfyui">{t('filterComfyUI')}</option>
+              <option value="import">{t('filterImport')}</option>
+            </select>
+
+            {/* Ratio Filter */}
+            <select
+              className="dsh-ig-studio-select"
+              value={selectedRatio}
+              onChange={e => setSelectedRatio(e.target.value)}
+            >
+              <option value="all">{t('filterAllRatios')}</option>
+              <option value="1:1">1:1</option>
+              <option value="16:9">16:9</option>
+              <option value="9:16">9:16</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+              <option value="3:2">3:2</option>
+              <option value="2:3">2:3</option>
+            </select>
+
+            {/* Prompt & Tag Search Bar */}
+            <div className="dsh-ig-studio-search-wrap">
+              <Search className="dsh-ig-studio-search-icon" size={14} />
+              <input
+                type="text"
+                className="dsh-ig-studio-search-input"
+                placeholder={t('searchPlaceholder')}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Filter: Current Workspace Only */}
+            <label className="dsh-ig-workspace-filter-label" title={t('filterCurrentWorkspaceHint')}>
+              <input
+                type="checkbox"
+                className="dsh-ig-workspace-checkbox"
+                checked={onlyCurrentWorkspace}
+                onChange={e => setOnlyCurrentWorkspace(e.target.checked)}
+              />
+              <span className="dsh-ig-workspace-filter-text">{t('filterCurrentWorkspace')}</span>
+              <span className="dsh-ig-workspace-filter-badge">
+                {workspaceItemsCount}/{items.length}
+              </span>
+            </label>
+          </div>
+
+          <div className="dsh-ig-studio-toolbar-right">
+            {activeTab === 'gallery' && (
+              <>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={(event) => {
+                    void importImages(event.target.files)
+                    event.target.value = ''
+                  }}
+                />
+                <button
+                  type="button"
+                  className="dsh-ig-studio-btn"
+                  disabled={importing}
+                  title={t('importPickHint')}
+                  onClick={() => importInputRef.current?.click()}
+                >
+                  <Upload size={13} />
+                  <span>{t('importImages')}</span>
+                </button>
+              </>
+            )}
+
+            {/* Sort Dropdown */}
+            <select
+              className="dsh-ig-studio-select dsh-ig-studio-select-sort"
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortKey)}
+            >
+              <option value="newest">{t('sortNewest')}</option>
+              <option value="oldest">{t('sortOldest')}</option>
+            </select>
+
+            {/* Batch Manage Mode Toggle */}
+            <button
+              type="button"
+              className={`dsh-ig-studio-btn ${isManageMode ? 'is-active' : ''}`}
+              title={isManageMode ? t('exitManage') : t('manage')}
+              onClick={() => {
+                if (isManageMode) {
+                  handleExitManage()
+                } else {
+                  setIsManageMode(true)
+                }
+              }}
+            >
+              <CheckSquare size={13} />
+              <span>{isManageMode ? t('exitManage') : t('manage')}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Main View Body */}
+      <div className={`dsh-ig-gallery-page-body ${activeTab === 'studio' ? 'is-workbench' : ''}`}>
+        {activeTab === 'gallery' || activeTab === 'favorites' ? (
+          items.length === 0 ? (
+            <div className="dsh-ig-gallery-empty">
+              <svg className="dsh-ig-gallery-empty-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+              <div className="dsh-ig-gallery-empty-title">{t('emptyTitle')}</div>
+              <div className="dsh-ig-gallery-empty-desc">{t('emptyDesc')}</div>
+            </div>
+          ) : activeTab === 'favorites' && filteredItems.length === 0 && search === '' && selectedProvider === 'all' && selectedRatio === 'all' ? (
+            <div className="dsh-ig-gallery-empty">
+              <svg className="dsh-ig-gallery-empty-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+              </svg>
+              <div className="dsh-ig-gallery-empty-title">{t('favEmptyTitle')}</div>
+              <div className="dsh-ig-gallery-empty-desc">{t('favEmptyDesc')}</div>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="dsh-ig-gallery-empty">
+              <svg className="dsh-ig-gallery-empty-icon" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              <div className="dsh-ig-gallery-empty-title">{t('noMatchTitle')}</div>
+              <div className="dsh-ig-gallery-empty-desc">{t('noMatchDesc')}</div>
+            </div>
+          ) : (
+            <div className="dsh-ig-gallery-grid">
+              {filteredItems.map((item, idx) => (
+                <GalleryCard
+                  key={item.id}
+                  item={item}
+                  index={idx}
+                  isManageMode={isManageMode}
+                  isSelected={selectedIds.has(item.id)}
+                  t={t}
+                  onClick={(e, blob) => handleCardClick(item, idx, e, blob)}
+                  onToggleSelect={e => handleToggleSelect(item.id, idx, e)}
+                  onRequestDelete={() => requestSingleDelete(item)}
+                  onPreview={blob => openPreviewItem(item, blob)}
+                  onBlobLoaded={b => blobCache.set(item.id, b)}
+                  onToast={showToast}
+                />
+              ))}
+            </div>
+          )
+        ) : activeTab === 'inspiration' ? (
+          <InspirationView locale={locale} onUsePrompt={useInspirationPrompt} onUseReference={useInspirationReference} />
+        ) : (
+          <StudioView locale={locale} credentialEvents={credentialEvents} workspace={activeWorkspace} initialPrompt={studioDraft} initialReference={studioReference} initialCanvasSurface={initialCanvasSurface} showInfiniteCanvasHint={!inSidebar} onInitialPromptApplied={clearStudioDraft} onInitialReferenceApplied={clearStudioReference} onOpenInspiration={() => setActiveTab('inspiration')} />
+        )}
+      </div>
+
+      {toast && <div className="dsh-ig-gallery-page-toast">{toast}</div>}
+
+      {/* 4. Floating Batch Action Bar */}
+      {(isManageMode || selectedIds.size > 0) && (
+        <div className="dsh-ig-batch-bar">
+          <div className="dsh-ig-batch-bar-left">
+            <span className="dsh-ig-batch-counter">
+              {t('selectedCount', { n: String(selectedIds.size) })}
+            </span>
+            <button
+              type="button"
+              className="dsh-ig-batch-btn"
+              onClick={handleSelectAll}
+            >
+              {t('selectAll')}
+            </button>
+            <button
+              type="button"
+              className="dsh-ig-batch-btn"
+              onClick={handleInvertSelect}
+            >
+              {t('invertSelect')}
+            </button>
+            {selectedIds.size > 0 && (
+              <button
+                type="button"
+                className="dsh-ig-batch-btn"
+                onClick={handleClearSelect}
+              >
+                {t('clearSelect')}
+              </button>
+            )}
+          </div>
+
+          <div className="dsh-ig-batch-bar-right">
+            {/* 1. Batch Favorite Button */}
+            <button
+              type="button"
+              className={`dsh-ig-batch-btn ${allSelectedAreFavorites ? 'is-favorited' : ''}`}
+              disabled={selectedIds.size === 0}
+              onClick={() => void handleBatchToggleFavorite()}
+              title={allSelectedAreFavorites ? t('batchUnfavorite') : t('batchFavorite')}
+            >
+              <Heart
+                size={13}
+                fill={allSelectedAreFavorites ? '#ef4444' : 'none'}
+                color={allSelectedAreFavorites ? '#ef4444' : 'currentColor'}
+              />
+              <span>{allSelectedAreFavorites ? t('batchUnfavorite') : t('batchFavorite')}</span>
+            </button>
+
+            {/* 2. Batch Download Button */}
+            <button
+              type="button"
+              className="dsh-ig-batch-btn dsh-ig-batch-btn-download"
+              disabled={selectedIds.size === 0 || isDownloadingBatch}
+              onClick={() => void handleBatchDownload()}
+              title={t('batchDownload')}
+            >
+              <Download size={13} />
+              <span>
+                {isDownloadingBatch && batchDownloadProgress
+                  ? t('batchDownloading', {
+                    current: batchDownloadProgress.split('/')[0] ?? '',
+                    total: batchDownloadProgress.split('/')[1] ?? '',
+                  })
+                  : t('batchDownload')}
+              </span>
+            </button>
+
+            <span className="dsh-ig-batch-divider" />
+
+            {/* 3. Batch Delete Button */}
+            <button
+              type="button"
+              className="dsh-ig-batch-btn dsh-ig-batch-btn-danger"
+              disabled={selectedIds.size === 0}
+              onClick={() => setShowDeleteModal(true)}
+            >
+              <Trash2 size={13} />
+              <span>{t('batchDelete')}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}</span>
+            </button>
+
+            {/* 4. Exit Manage Button */}
+            <button
+              type="button"
+              className="dsh-ig-batch-btn dsh-ig-batch-btn-exit"
+              onClick={handleExitManage}
+            >
+              {t('exitManage')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Delete Confirmation Modal (Unified for single & batch) */}
+      {showDeleteModal && (
+        <div
+          className="dsh-ig-modal-backdrop"
+          onClick={() => {
+            if (!isDeleting) {
+              setShowDeleteModal(false)
+              if (!isManageMode) setSelectedIds(new Set())
+            }
+          }}
+        >
+          <div className="dsh-ig-modal-box" onClick={e => e.stopPropagation()}>
+            <div className="dsh-ig-modal-header">
+              <div className="dsh-ig-modal-icon-danger">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="dsh-ig-modal-title">
+                {selectedIds.size === 1
+                  ? t('batchDeleteTitleSingle')
+                  : t('batchDeleteTitle', { count: String(selectedIds.size) })}
+              </div>
+            </div>
+
+            <div className="dsh-ig-modal-body">
+              <p className="dsh-ig-modal-desc">
+                {t('batchDeleteDesc')}
+              </p>
+
+              {hasWorkspaceFilesToDelete && (
+                <label className="dsh-ig-modal-checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={deleteWorkspaceFiles}
+                    onChange={e => setDeleteWorkspaceFiles(e.target.checked)}
+                    disabled={isDeleting}
+                  />
+                  <span>{t('deleteWorkspaceFilesOpt')}</span>
+                </label>
+              )}
+            </div>
+
+            <div className="dsh-ig-modal-footer">
+              <button
+                type="button"
+                className="dsh-ig-modal-btn dsh-ig-modal-btn-cancel"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  if (!isManageMode) setSelectedIds(new Set())
+                }}
+                disabled={isDeleting}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                className="dsh-ig-modal-btn dsh-ig-modal-btn-danger"
+                onClick={handleConfirmBatchDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting
+                  ? '...'
+                  : selectedIds.size === 1
+                    ? t('confirmDeleteSingle')
+                    : t('confirmBatchDelete', { count: String(selectedIds.size) })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Regenerate Prompt Modal */}
+      {showRegenerateModal && previewItem && (
+        <div
+          className="dsh-ig-modal-backdrop"
+          onClick={handleCancelRegeneratePrompt}
+        >
+          <div className="dsh-ig-modal-box dsh-ig-regenerate-modal-box" onClick={e => e.stopPropagation()}>
+            <div className="dsh-ig-modal-header">
+              <div className="dsh-ig-regenerate-modal-icon">
+                <Sparkles size={18} />
+              </div>
+              <div className="dsh-ig-regenerate-modal-title-wrap">
+                <div className="dsh-ig-modal-title">{t('regenerateTitle')}</div>
+                <div className="dsh-ig-regenerate-modal-meta">
+                  <span className="dsh-ig-tag">{previewItem.provider === 'import' ? t('filterImport') : previewItem.provider}</span>
+                  {previewItem.model && <span className="dsh-ig-tag dsh-ig-tag-model">{previewItem.model}</span>}
+                  <span className="dsh-ig-tag">{formatCardMeta(previewItem)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="dsh-ig-modal-body">
+              <p className="dsh-ig-modal-desc">{t('regenerateHint')}</p>
+              <textarea
+                className="dsh-ig-regenerate-modal-textarea"
+                value={regeneratePrompt}
+                onChange={e => setRegeneratePrompt(e.target.value)}
+                placeholder={t('prompt')}
+                rows={4}
+                autoFocus
+              />
+            </div>
+
+            <div className="dsh-ig-modal-footer">
+              <button
+                type="button"
+                className="dsh-ig-modal-btn dsh-ig-modal-btn-cancel"
+                onClick={handleCancelRegeneratePrompt}
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                className="dsh-ig-modal-btn dsh-ig-modal-btn-primary"
+                onClick={handleConfirmRegenerate}
+                disabled={regeneratePrompt.trim().length === 0}
+              >
+                <Sparkles size={14} />
+                <span>{t('confirmRegenerate')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Lightbox Preview Modal */}
+      {previewItem && (
+        <div
+          className="dsh-ig-lightbox-backdrop"
+          onClick={handleClosePreview}
+        >
+          {/* Top Bar: Info, Index Counter & Close */}
+          <div
+            className="dsh-ig-lightbox-topbar"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="dsh-ig-lightbox-meta">
+              <span className="dsh-ig-tag">{previewItem.provider === 'import' ? t('filterImport') : previewItem.provider}</span>
+              {previewItem.model ? (
+                <span className="dsh-ig-tag dsh-ig-tag-model">{previewItem.model}</span>
+              ) : null}
+              {currentPreviewIndex >= 0 && (
+                <span className="dsh-ig-lightbox-counter">
+                  {currentPreviewIndex + 1} / {filteredItems.length}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              className="dsh-ig-lightbox-close-btn"
+              title={t('close')}
+              onClick={handleClosePreview}
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Floating Prev Button (Left) */}
+          <button
+            type="button"
+            className="dsh-ig-lightbox-nav-btn dsh-ig-lightbox-nav-prev"
+            title={t('prevImage')}
+            disabled={!hasPrev}
+            onClick={(e) => {
+              e.stopPropagation()
+              goToPrev()
+            }}
+          >
+            <ChevronLeft size={24} />
+          </button>
+
+          {/* Floating Next Button (Right) */}
+          <button
+            type="button"
+            className="dsh-ig-lightbox-nav-btn dsh-ig-lightbox-nav-next"
+            title={t('nextImage')}
+            disabled={!hasNext}
+            onClick={(e) => {
+              e.stopPropagation()
+              goToNext()
+            }}
+          >
+            <ChevronRight size={24} />
+          </button>
+
+          {/* Centered Image / Loading state */}
+          <div className="dsh-ig-lightbox-img-wrap" onClick={e => e.stopPropagation()}>
+            {previewLoading ? (
+              <div className="dsh-ig-lightbox-loading">
+                <div className="dsh-ig-lightbox-spinner" />
+              </div>
+            ) : previewUrl ? (
+              <img
+                className="dsh-ig-lightbox-img"
+                src={previewUrl}
+                alt={previewItem.prompt}
+              />
+            ) : null}
+          </div>
+
+          {/* Bottom Floating Pill Bar: Prompt & Actions */}
+          <div
+            className="dsh-ig-lightbox-bottombar"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="dsh-ig-lightbox-prompt-text" title={previewItem.prompt}>
+              {previewItem.prompt}
+            </div>
+            <div className="dsh-ig-lightbox-actions">
+              <button
+                type="button"
+                className="dsh-ig-lightbox-btn"
+                title={t('copyPpt')}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(previewItem.prompt)
+                  showToast(t('copiedPrompt'))
+                }}
+              >
+                <FileText size={14} />
+                <span>{t('copyPpt')}</span>
+              </button>
+
+              <button
+                type="button"
+                className="dsh-ig-lightbox-btn"
+                title={t('copyImg')}
+                onClick={async () => {
+                  if (!previewBlob) return
+                  const ok = await copyImageBlob(previewBlob)
+                  showToast(ok ? t('copiedImage') : t('copyFailed'))
+                }}
+              >
+                <Copy size={14} />
+                <span>{t('copyImg')}</span>
+              </button>
+
+              <button
+                type="button"
+                className="dsh-ig-lightbox-btn"
+                title={t('download')}
+                onClick={() => {
+                  if (!previewUrl) return
+                  const a = document.createElement('a')
+                  a.href = previewUrl
+                  a.download = `dsh-${previewItem.provider}-${previewItem.id}.png`
+                  document.body.appendChild(a)
+                  a.click()
+                  document.body.removeChild(a)
+                }}
+              >
+                <Download size={14} />
+                <span>{t('download')}</span>
+              </button>
+
+              <button
+                type="button"
+                className="dsh-ig-lightbox-btn dsh-ig-lightbox-btn-regenerate"
+                title={t('regenerate')}
+                disabled={isRegenerating}
+                onClick={handleOpenRegenerate}
+              >
+                <Sparkles size={14} />
+                <span>{t('regenerate')}</span>
+              </button>
+
+              {isRegenerating && (
+                <div className="dsh-ig-lightbox-generating-indicator">
+                  <div className="dsh-ig-lightbox-spinner-sm" />
+                  <span>{t('regenerating')}</span>
+                  <button
+                    type="button"
+                    className="dsh-ig-lightbox-abort-btn"
+                    onClick={handleAbortRegenerating}
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="dsh-ig-lightbox-btn dsh-ig-lightbox-btn-danger"
+                title={t('delete')}
+                onClick={() => {
+                  if (previewItem) {
+                    requestSingleDelete(previewItem)
+                  }
+                }}
+              >
+                <Trash2 size={14} />
+                <span>{t('delete')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface GalleryCardProps {
+  item: GalleryItem
+  index: number
+  isManageMode: boolean
+  isSelected: boolean
+  t: (key: DictKey, params?: Record<string, string>) => string
+  onClick: (e: MouseEvent, blob?: Blob) => void
+  onToggleSelect: (e: MouseEvent) => void
+  onRequestDelete: () => void
+  onPreview: (blob: Blob) => void
+  onBlobLoaded?: (blob: Blob) => void
+  onToast: (msg: string) => void
+}
+
+const GalleryCard: FC<GalleryCardProps> = ({
+  item,
+  index: _index,
+  isManageMode,
+  isSelected,
+  t,
+  onClick,
+  onToggleSelect,
+  onRequestDelete,
+  onPreview: _onPreview,
+  onBlobLoaded,
+  onToast,
+}) => {
+  const [url, setUrl] = useState<string>()
+  const [blob, setBlob] = useState<Blob>()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    const controller = new AbortController()
+    let objectUrl: string | undefined
+
+    void fetch(IMAGE_ROUTE, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ attachment: item.attachment }),
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const resBlob = await response.blob()
+        if (controller.signal.aborted) return
+        setBlob(resBlob)
+        onBlobLoaded?.(resBlob)
+        objectUrl = URL.createObjectURL(resBlob)
+        setUrl(objectUrl)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          setError(err instanceof Error ? err.message : String(err))
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [item.attachment])
+
+  const copyPrompt = async (e: MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(item.prompt)
+      onToast(t('copiedPrompt'))
+    } catch {
+      onToast(t('copyFailed'))
+    }
+  }
+
+  const copyImage = async (e: MouseEvent) => {
+    e.stopPropagation()
+    if (!blob) return
+    const ok = await copyImageBlob(blob)
+    onToast(ok ? t('copiedImage') : t('copyFailed'))
+  }
+
+  const downloadImage = (e: MouseEvent) => {
+    e.stopPropagation()
+    if (!url) return
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `dsh-${item.provider}-${item.id}.png`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  const toggleFavorite = async (e: MouseEvent) => {
+    e.stopPropagation()
+    const nextStatus = await toggleFavoriteGalleryItem(item.id)
+    onToast(nextStatus ? t('favoriteAdded') : t('favoriteRemoved'))
+  }
+
+  // Label for top badge: show model or fallback to provider
+  const badgeLabel = item.model || item.provider
+
+  return (
+    <div
+      className={`dsh-ig-gallery-card ${isSelected ? 'is-selected' : ''} ${isManageMode ? 'is-manage-mode' : ''}`}
+      onClick={e => onClick(e, blob)}
+    >
+      {/* Upper media container */}
+      <div className="dsh-ig-gallery-card-media">
+        {/* Selection Checkbox (Top Left) */}
+        <button
+          type="button"
+          className={`dsh-ig-card-checkbox ${isSelected ? 'is-checked' : ''}`}
+          title={isSelected ? t('clearSelect') : t('manage')}
+          onClick={onToggleSelect}
+        >
+          {isSelected && <Check size={11} strokeWidth={3} />}
+        </button>
+
+        {loading && <div className="dsh-ig-gallery-card-loading">...</div>}
+        {error && <div className="dsh-ig-gallery-card-error">⚠️ {error}</div>}
+        {url && (
+          <img
+            className="dsh-ig-gallery-card-img"
+            src={url}
+            alt={item.prompt}
+            loading="lazy"
+          />
+        )}
+
+        {/* Hover quick action toolbar */}
+        <div className="dsh-ig-card-toolbar">
+          <button
+            type="button"
+            className="dsh-ig-tool-btn"
+            title={t('copyImg')}
+            onClick={(e) => {
+              void copyImage(e)
+            }}
+          >
+            <Copy size={13} />
+          </button>
+          <button
+            type="button"
+            className="dsh-ig-tool-btn"
+            title={t('download')}
+            onClick={downloadImage}
+          >
+            <Download size={13} />
+          </button>
+          <button
+            type="button"
+            className="dsh-ig-tool-btn"
+            title={t('copyPpt')}
+            onClick={(e) => {
+              void copyPrompt(e)
+            }}
+          >
+            <FileText size={13} />
+          </button>
+          <button
+            type="button"
+            className="dsh-ig-tool-btn dsh-ig-tool-btn-danger"
+            title={t('delete')}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRequestDelete()
+            }}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+
+      {/* Lower metadata container aligned with mockup */}
+      <div className="dsh-ig-gallery-card-meta">
+        {/* Top badge */}
+        <div className="dsh-ig-card-badge-row">
+          <span className="dsh-ig-card-badge" title={badgeLabel}>
+            {badgeLabel}
+          </span>
+        </div>
+
+        {/* Prompt single-line title */}
+        <div className="dsh-ig-gallery-card-prompt-line" title={item.prompt}>
+          {item.prompt}
+        </div>
+
+        {/* Bottom meta row: dimension/ratio + relative time + heart favorite */}
+        <div className="dsh-ig-card-footer-row">
+          <span className="dsh-ig-card-meta-text">
+            {formatCardMeta(item)} | {formatRelativeTime(item.createdAt, t)}
+          </span>
+
+          <button
+            type="button"
+            className={`dsh-ig-card-fav-btn ${item.isFavorite ? 'is-favorited' : ''}`}
+            title={item.isFavorite ? t('favoriteRemoved') : t('favoriteAdded')}
+            onClick={(e) => {
+              void toggleFavorite(e)
+            }}
+          >
+            <Heart
+              size={15}
+              fill={item.isFavorite ? 'currentColor' : 'none'}
+            />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface PlaceholderViewProps {
+  icon: string
+  title: string
+  description: string
+  tip?: string
+  badge?: string
+}
+
+const PlaceholderView: FC<PlaceholderViewProps> = ({
+  icon,
+  title,
+  description,
+  tip,
+  badge,
+}) => {
+  return (
+    <div className="dsh-ig-placeholder-view">
+      <div className="dsh-ig-placeholder-card">
+        <div className="dsh-ig-placeholder-icon">{icon}</div>
+        <div className="dsh-ig-placeholder-header">
+          <h2 className="dsh-ig-placeholder-title">{title}</h2>
+          {badge && <span className="dsh-ig-placeholder-badge">{badge}</span>}
+        </div>
+        <p className="dsh-ig-placeholder-desc">{description}</p>
+        {tip && <div className="dsh-ig-placeholder-tip">{tip}</div>}
+      </div>
+    </div>
+  )
+}
+
+export { copyImageBlob } from './browser-image-utils.js'

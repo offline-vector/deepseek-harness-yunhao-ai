@@ -1,0 +1,7 @@
+- insert:
+    - id: image-gen
+      name: '@deepseek-ai/dsh-image-gen'
+      config:
+        provider: openai-compat
+        openaiCompatBaseURL: https://s1api.com/v1
+        openaiCompatModel: gpt-image-2

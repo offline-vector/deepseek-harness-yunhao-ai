@@ -13,6 +13,7 @@
     "**/.node-next-types-*/**",
     "website/.generated/**",
     "vendor/**",
+    "packages/extensions/dsh-image-gen/**",
     "native/**",
     "**/*.js",
     "**/*.mjs",

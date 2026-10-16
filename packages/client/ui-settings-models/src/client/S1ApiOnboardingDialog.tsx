@@ -14,6 +14,9 @@ import { OnboardingModal } from './OnboardingModal.tsx'
 import styles from './ModelsSection.module.css'
 import css from './S1ApiOnboardingDialog.module.css'
 
+/** Credential used by the S1API OpenAI-compatible image-generation route. */
+const S1API_IMAGE_KEY_REF = 'DSH_IMAGE_GEN_OPENAI_COMPAT_KEY'
+
 /** The shared Models join and credential operations used by first-run setup. */
 export interface S1ApiOnboardingInjected {
   automatic: boolean
@@ -29,7 +32,7 @@ export interface S1ApiOnboardingInjected {
 export type S1ApiOnboardingDialogProps = Pick<PropsRuntime<'settings.onboarding'>, 'complete' | 'explicit'> & InjectFace<S1ApiOnboardingInjected>
 
 /**
- * Offer the three configured S1API routes until a key is saved or setup is skipped.
+ * Offer the three configured S1API routes plus the optional image route until a key is saved or setup is skipped.
  * A failed multi-key save retains drafts; previously committed keys remain saved.
  * @param props - coordinator callbacks, Models snapshot and credential writer.
  * @returns the credential form, a retryable load error, or nothing for configured users.
@@ -38,6 +41,7 @@ export function S1ApiOnboardingDialog(props: S1ApiOnboardingDialogProps): ReactN
   const { load, useModels, storeCredential, complete, t, automatic, explicit = false } = props
   const state = useModels(value => value)
   const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const [imageKeyDraft, setImageKeyDraft] = useState('')
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [failure, setFailure] = useState<string | undefined>()
@@ -63,6 +67,8 @@ export function S1ApiOnboardingDialog(props: S1ApiOnboardingDialogProps): ReactN
       const ref = row.apiKeyEnv
       return value.length === 0 || ref === undefined ? [] : [{ ref, value }]
     })
+    const imageKey = imageKeyDraft.trim()
+    if (imageKey.length > 0) pending.push({ ref: S1API_IMAGE_KEY_REF, value: imageKey })
     if (pending.length === 0) { setFailure(t('keyRequired')); return }
     if (pending.some(({ value }) => !/^[\x21-\x7e]+$/.test(value))) {
       setFailure(t('keyIllegalCharacters'))
@@ -108,6 +114,19 @@ export function S1ApiOnboardingDialog(props: S1ApiOnboardingDialogProps): ReactN
             }}
           />
         </label>)}
+        <label className={css.field}>
+          <span>{t('s1ImageKeyLabel')}</span>
+          <ApiKeyInput
+            t={t} value={imageKeyDraft} disabled={saving || !state.writable}
+            aria-label={`${t('s1ImageKeyLabel')} ${t('keyInput')}`}
+            placeholder={t('s1ImageKeyPlaceholder')}
+            onChange={(event) => {
+              setEditing(true)
+              setImageKeyDraft(event.target.value)
+            }}
+          />
+          <span className={css.hint}>{t('s1ImageKeyHint')}</span>
+        </label>
         <p className={css.copy}>{t('s1DefaultHint')}</p>
         {!state.writable && <p role="alert" className={styles['error']}>{t('readOnly')}</p>}
       </> : <div>
