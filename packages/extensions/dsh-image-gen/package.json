@@ -59,7 +59,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "tsc && tsdown",
-    "prepare": "pnpm run build",
     "test": "vitest run",
     "test:package": "node scripts/check-package.mjs",
     "pack:check": "pnpm pack --dry-run"
