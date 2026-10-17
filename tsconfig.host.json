@@ -226,6 +226,8 @@
     "packages/*/*/tests/**/*.client.tsx",
     "packages/*/*/tests/**/*.client.spec.ts",
     "packages/*/*/tests/**/*.client.spec.tsx",
+    // dsh-image-gen is an optional extension built and typechecked from its own package project.
+    "packages/extensions/dsh-image-gen/tests/**/*.ts",
     "packages/client/tsdown.client.ts",
     "scripts/*.client.spec.ts",
     "scripts/client-bundle-css.spec.ts",
