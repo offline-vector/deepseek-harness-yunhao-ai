@@ -222,7 +222,7 @@ export const StudioView: FC<{
   const [mode, setMode] = useState<Mode>('generate')
   const [provider, setProvider] = useState<StudioProvider>('google')
   const [model, setModel] = useState('')
-  const [ratio, setRatio] = useState('1:1')
+  const [ratio, setRatio] = useState('auto')
   const [quality, setQuality] = useState('1K')
   const [resolution, setResolution] = useState('1K')
   const [generationQuality, setGenerationQuality] = useState(PROVIDER_DEFAULT_QUALITY)

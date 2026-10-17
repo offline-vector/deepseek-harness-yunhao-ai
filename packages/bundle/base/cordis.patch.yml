@@ -167,16 +167,16 @@
             baseURL: https://s1api.com
             models:
               - id: claude-opus-5-5
-                contextWindow: 1000000
+                contextWindow: 800000
                 maxTokens: 128000
               - id: claude-sonnet-5-5
-                contextWindow: 1000000
+                contextWindow: 800000
                 maxTokens: 128000
               - id: claude-fable-5-1
-                contextWindow: 1000000
+                contextWindow: 800000
                 maxTokens: 128000
               - id: claude-sonnet-5
-                contextWindow: 1000000
+                contextWindow: 800000
                 maxTokens: 128000
           google:
             displayName: Gemini
@@ -186,11 +186,11 @@
             models:
               - id: gemini-3.8-flash-high
                 input: [text, image]
-                contextWindow: 1000000
+                contextWindow: 800000
                 maxTokens: 65536
               - id: gemini-4-argon
                 input: [text, image]
-                contextWindow: 1000000
+                contextWindow: 800000
                 maxTokens: 65536
                 name: Gemini 4
 

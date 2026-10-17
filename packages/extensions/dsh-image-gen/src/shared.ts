@@ -283,8 +283,22 @@ export function isS1APIBaseURL(baseURL: string): boolean {
   }
 }
 
+/**
+ * Resolve the size field used by the S1API OpenAI-compatible image endpoint
+ * for a tool call. The chat model naturally emits `aspect_ratio`, while the
+ * relay's OpenAI-shaped request carries that value in `size`. An explicit
+ * `size` remains authoritative for callers that need an exact dimension.
+ */
+export function s1APIImageToolSize(baseURL: string, size?: string, aspectRatio?: string): string | undefined {
+  const explicitSize = size?.trim()
+  if (explicitSize !== undefined && explicitSize.length > 0) return explicitSize
+  if (!isS1APIBaseURL(baseURL)) return undefined
+  const ratio = aspectRatio?.trim()
+  return ratio !== undefined && ratio.length > 0 ? ratio : undefined
+}
+
 const S1API_BASE_IMAGE_RATIOS = ['1:1', '3:2', '16:9', '4:3', '3:4', '5:4', '4:5', '21:9', '2:3', 'auto', '9:16'] as const
-const S1API_FIXED_IMAGE_RATIOS = ['1:1', '5:4', '7:6', '9:16', '21:9', '16:9', '3:2', '4:3', '4:5', '3:4', '2:3'] as const
+const S1API_FIXED_IMAGE_RATIOS = ['auto', '1:1', '5:4', '7:6', '9:16', '21:9', '16:9', '3:2', '4:3', '4:5', '3:4', '2:3'] as const
 const S1API_IMAGE_QUALITY_VALUES = ['medium', 'low', 'high', 'xhigh', 'max'] as const
 
 /** Model-specific output controls from the Cangyuan image model contract. */
@@ -331,7 +345,7 @@ export function s1APIImageModelProfile(model: string): StudioModelProfile | unde
     model,
     ratioOptions: ratios.map(value => ({ value, label: value })),
     qualityOptions,
-    defaultRatio: ratios[0]!,
+    defaultRatio: 'auto',
     defaultQuality: tier,
     resolutionOptions,
     defaultResolution: tier,
